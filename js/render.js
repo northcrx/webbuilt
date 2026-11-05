@@ -161,12 +161,48 @@
         def.html(item.props || {}, item) + '</section>';
     },
 
+    /* One exported screen: scrollable content plus its pinned dock. */
+    exportPageMarkup: function (page, index, active) {
+      var self = this;
+      var screen = (page && page.screen) || [];
+      var flow = screen.filter(function (item) {
+        return !item.hidden && !self.isDockBlock(item);
+      }).map(function (item) { return self.exportBlock(item); }).join('\n');
+      var dock = screen.filter(function (item) {
+        return !item.hidden && self.isDockBlock(item);
+      }).map(function (item) { return self.exportBlock(item); }).join('\n');
+
+      if (!flow) flow = '<div class="screen-empty"><strong>Empty screen</strong></div>';
+
+      return '<div class="screen-page' + (active ? ' active' : '') + '" data-page-index="' + index + '" ' +
+        'data-page-label="' + esc(page.name || ('Screen ' + (index + 1))) + '">' +
+        '<div class="screen-flow">' + flow + '</div>' +
+        (dock ? '<div class="screen-dock">' + dock + '</div>' : '') +
+        '</div>';
+    },
+
+    /* Every page is exported so bottom-navigation tabs keep working offline. */
+    exportPages: function () {
+      var d = S.State.data;
+      var pages = (Array.isArray(d.pages) && d.pages.length) ? d.pages : [{ name: 'Home', screen: d.screen }];
+      var activeIndex = 0;
+      pages.forEach(function (page, index) {
+        if (page.id === d.activePageId) activeIndex = index;
+      });
+      var body = pages.map(function (page, index) {
+        return this.exportPageMarkup(page, index, index === activeIndex);
+      }, this).join('\n');
+      return { html: body, count: pages.length, activeIndex: activeIndex };
+    },
+
     /* Drawer, three-dot menu and search screen. Kept in shared markup so the
        exporter gets exactly the same controls as the editor preview. */
     overlayMarkup: function () {
       var d = S.State.data;
       var ui = (d.ui && d.ui.drawer && d.ui.menu) ? d.ui : S.defaultUI();
       var header = ui.drawer.header || {};
+      var search = ui.search || {};
+      var showHeader = ui.drawer.showHeader !== false;
 
       var drawerItems = (ui.drawer.items || []).map(function (it) {
         return '<button type="button" class="ui-drawer-item' + (it.active ? ' active' : '') + '" ' +
@@ -182,27 +218,70 @@
           '</button>';
       }).join('');
 
+      var chips = String(search.chips || '').split(',').map(function (c) {
+        return c.trim();
+      }).filter(Boolean);
+      var chipsMarkup = chips.length
+        ? '<div class="ui-search-chips">' + chips.map(function (label) {
+          return '<button type="button" class="ui-chip" data-ui-chip="' + esc(label) + '">' + esc(label) + '</button>';
+        }).join('') + '</div>'
+        : '';
+
       return '<div class="ui-scrim" data-ui-close="1" aria-hidden="true"></div>' +
-        '<aside class="ui-drawer" role="dialog" aria-modal="true" aria-label="Navigation drawer" aria-hidden="true">' +
-        '<div class="ui-drawer-head">' +
-        '<span class="ui-avatar">' + esc(header.avatar || 'A') + '</span>' +
-        '<div class="ui-drawer-id"><strong>' + esc(header.title || 'Navigation') + '</strong>' +
-        '<small>' + esc(header.subtitle || '') + '</small></div>' +
-        '<button type="button" class="ui-icon-btn" data-ui-close="1" aria-label="Close navigation"><span class="mi">close</span></button>' +
-        '</div>' +
+        '<aside class="ui-drawer' + (showHeader ? '' : ' no-head') + '" role="dialog" aria-modal="true" aria-label="Navigation drawer" aria-hidden="true">' +
+        (showHeader ? '<div class="ui-drawer-head">' +
+          '<span class="ui-avatar">' + esc(header.avatar || 'A') + '</span>' +
+          '<div class="ui-drawer-id"><strong>' + esc(header.title || 'Navigation') + '</strong>' +
+          '<small>' + esc(header.subtitle || '') + '</small></div>' +
+          '<button type="button" class="ui-icon-btn" data-ui-close="1" aria-label="Close navigation"><span class="mi">close</span></button>' +
+          '</div>' : '') +
         '<nav class="ui-drawer-nav">' + (drawerItems || '<p class="ui-empty">No drawer items yet.</p>') + '</nav>' +
         '</aside>' +
         '<div class="ui-menu" role="menu" aria-label="More actions" aria-hidden="true">' +
         (menuItems || '<p class="ui-empty">No menu items yet.</p>') +
         '</div>' +
-        '<div class="ui-search" role="dialog" aria-modal="true" aria-label="Search" aria-hidden="true">' +
+        '<div class="ui-search" data-search-hint="' + esc(search.hint || '') + '" role="dialog" aria-modal="true" aria-label="Search" aria-hidden="true">' +
         '<div class="ui-search-bar">' +
         '<button type="button" class="ui-icon-btn" data-ui-close="1" aria-label="Close search"><span class="mi">arrow_back</span></button>' +
-        '<input type="search" class="ui-search-input" placeholder="Search pages and actions…" aria-label="Search">' +
+        '<input type="search" class="ui-search-input" placeholder="' + esc(search.placeholder || 'Search pages and actions…') + '" aria-label="Search">' +
         '<button type="button" class="ui-icon-btn" data-ui-search-clear="1" aria-label="Clear search"><span class="mi">close</span></button>' +
         '</div>' +
+        chipsMarkup +
         '<div class="ui-search-body"><div class="ui-search-results"></div></div>' +
         '</div>';
+    },
+
+    /* Blocks that live outside the scroll flow and stay pinned to the bottom
+       of the phone: the bottom navigation and a docked mini player. */
+    isDockBlock: function (item) {
+      if (!item) return false;
+      if (item.type === 'bottomnav') return true;
+      return item.type === 'miniplayer' && item.props && !!item.props.dock;
+    },
+
+    blockMarkup: function (item, selecting, selectedId) {
+      var def = S.components[item.type];
+      if (!def) return '';
+      var classes = 'cmp cmp-' + item.type;
+      if (selecting && item.id === selectedId) classes += ' is-selected';
+      if (item.hidden) classes += ' is-hidden';
+      if (item.locked) classes += ' is-locked';
+      var style = [this.blockStyle(item), this.typographyStyle(item)].filter(Boolean).join(';');
+      return '<section class="' + classes + '" data-id="' + item.id + '"' +
+        (this.hasTypography(item) ? ' data-typo="1"' : '') +
+        (style ? ' style="' + esc(style) + '"' : '') + '>' +
+        def.html(item.props || {}, item) + this.blockChrome(item) + '</section>';
+    },
+
+    dockMarkup: function (selecting, selectedId, list) {
+      var self = this;
+      var items = (list || S.State.data.screen).filter(function (item) {
+        return self.isDockBlock(item);
+      });
+      var html = items.map(function (item) {
+        return self.blockMarkup(item, selecting, selectedId);
+      }).join('');
+      return html ? '<div class="screen-dock">' + html + '</div>' : '';
     },
 
     /* Small editor-only toolbar shown on the selected block. Export uses
@@ -221,21 +300,13 @@
         '<span class="cmp-resize" data-resize="1" title="Resize block" aria-hidden="true"></span>';
     },
 
-    screenMarkup: function (selecting, selectedId) {
+    screenMarkup: function (selecting, selectedId, flowOnly) {
       var data = S.State.data;
       var self = this;
-      var html = data.screen.map(function (item) {
-        var def = S.components[item.type];
-        if (!def) return '';
-        var classes = 'cmp cmp-' + item.type;
-        if (selecting && item.id === selectedId) classes += ' is-selected';
-        if (item.hidden) classes += ' is-hidden';
-        if (item.locked) classes += ' is-locked';
-        var style = [self.blockStyle(item), self.typographyStyle(item)].filter(Boolean).join(';');
-        return '<section class="' + classes + '" data-id="' + item.id + '"' +
-          (self.hasTypography(item) ? ' data-typo="1"' : '') +
-          (style ? ' style="' + esc(style) + '"' : '') + '>' +
-          def.html(item.props || {}, item) + self.blockChrome(item) + '</section>';
+      var html = data.screen.filter(function (item) {
+        return !(flowOnly && self.isDockBlock(item));
+      }).map(function (item) {
+        return self.blockMarkup(item, selecting, selectedId);
       }).join('');
 
       if (!html) {
@@ -250,8 +321,9 @@
         '<div class="phone-screen">' +
         (d.device.statusBar ? this.statusBar() : '') +
         '<div class="app-screen screen-surface' + (selecting ? ' selecting' : '') + '">' +
-        this.screenMarkup(selecting, d.selectedId) +
+        this.screenMarkup(selecting, d.selectedId, true) +
         '</div>' +
+        this.dockMarkup(selecting, d.selectedId) +
         (d.device.gestureBar ? this.gestureBar() : '') +
         '</div>';
     },

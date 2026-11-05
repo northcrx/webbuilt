@@ -181,6 +181,93 @@
             b('bottomnav', { items: 'home:Home\nsearch:Search\nlibrary_music:Library\nperson:You', active: 0 })
           ]);
         }
+      },
+      {
+        id: 'player',
+        label: 'Now playing',
+        icon: 'play_circle',
+        theme: {
+          primary: '#7C3AED',
+          radius: 24,
+          dark: true,
+          fonts: { ui: 'Outfit', display: 'Sora' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Now playing', variant: 'center', leading: false, actions: 'more_vert', elevated: false }),
+            b('musicplayer', {
+              title: 'Midnight Drive', artist: 'Nova Lane', album: 'Neon Hours',
+              coverIcon: 'headphones', progress: 42, elapsed: '1:48', duration: '4:12',
+              liked: true, playing: true
+            }),
+            b('section', { title: 'Up next', action: 'Queue' }),
+            b('tracklist', {
+              items: 'Paper Planes | Kite Club | 2:58\nLow Orbit | Nia Sol | 4:06\nAfter Rain | Vela | 3:21',
+              active: 0, showCover: true
+            })
+          ]);
+        }
+      },
+      {
+        id: 'downloads',
+        label: 'Downloads',
+        icon: 'download',
+        theme: {
+          primary: '#0284C7',
+          radius: 20,
+          dark: false,
+          fonts: { ui: 'DM Sans', display: 'Sora' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Downloads', variant: 'large', leadingIcon: 'menu', actions: 'search, more_vert', elevated: false }),
+            b('statrow', {
+              items: 'Active | 3 | download\nSpeed | 22.4 MB/s | speed\nFree | 15.8 GB | storage',
+              columns: '3'
+            }),
+            b('downloadqueue', {
+              title: 'Active downloads',
+              summary: '3 items · 22.4 MB/s',
+              items: 'Season 2 · Episode 4 | 1.2 GB of 2.8 GB | 72 | movie\nProduct launch assets | 840 MB of 1.4 GB | 54 | folder\nPodcast · Deep Work #42 | 186 MB | 100 | headphones\nInterstellar.2014.mkv | 6.1 GB | 8 | movie'
+            }),
+            b('storageusage', {}),
+            b('bottomnav', { items: 'download:Downloads\nfolder:Files\ncloud:Cloud\nperson:Account', active: 0 })
+          ]);
+        }
+      },
+      {
+        id: 'vault',
+        label: 'Vault',
+        icon: 'shield',
+        theme: {
+          primary: '#0F766E',
+          radius: 20,
+          dark: false,
+          fonts: { ui: 'Manrope', display: 'Manrope' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Vault', variant: 'large', leadingIcon: 'menu', actions: 'search, more_vert', elevated: false }),
+            b('securityscore', {
+              title: 'Vault health',
+              subtitle: '2 weak passwords and 1 reused login need attention.',
+              score: 86, saved: '84', weak: '2', breaches: '0',
+              action: 'Review weak passwords'
+            }),
+            b('vaultlist', {
+              title: 'Your vault',
+              subtitle: '84 logins · Synced just now',
+              search: 'Search your vault',
+              items: 'GitHub | dev@nova.io | 3 | code\nFigma | design@nova.io | 2 | palette\nStripe | finance@nova.io | 3 | credit_card\nMail | ava@nova.io | 1 | mail'
+            }),
+            b('quickactions', {
+              title: 'Tools',
+              items: 'password:Generator\nsync:Sync now\nshield:Checkup\nsettings:Settings',
+              columns: '4'
+            }),
+            b('bottomnav', { items: 'key:Vault\nshield:Security\nsync:Sync\nperson:Account', active: 0 })
+          ]);
+        }
       }
     ],
 
@@ -472,6 +559,7 @@
   S.defaultUI = function () {
     return {
       drawer: {
+        showHeader: true,
         header: { title: 'Droid Lab', subtitle: 'alex@droidlab.app', avatar: 'AL' },
         items: [
           { id: 'drawer-home', label: 'Home', icon: 'msr:home', active: true },
@@ -486,17 +574,75 @@
           { id: 'menu-edit', label: 'Edit', icon: 'msr:edit' },
           { id: 'menu-delete', label: 'Delete', icon: 'msr:delete' }
         ]
+      },
+      search: {
+        mode: 'overlay',
+        placeholder: 'Search pages, blocks and actions…',
+        chips: 'All, Music, Saved, Files',
+        hint: 'Try “Home”, “Settings” or “Hero”.'
       }
     };
   };
 
+  /* Split a single screen into the multi-screen model. If the screen already
+     contains a bottom navigation block, every tab becomes a page. The tab that
+     is marked active keeps the real content; the other pages start with only a
+     matching bottom navigation so they can be filled in independently. */
+  S.pagesFromScreen = function (screen) {
+    var list = Array.isArray(screen) ? screen : [];
+    var nav = null;
+    list.forEach(function (block) {
+      if (!nav && block.type === 'bottomnav') nav = block;
+    });
+
+    var entries = [];
+    if (nav) {
+      entries = String(nav.props.items || '').split('\n')
+        .map(function (line) { return line.trim(); })
+        .filter(Boolean)
+        .map(function (line) {
+          var idx = line.indexOf(':');
+          return idx > -1
+            ? { icon: line.slice(0, idx).trim() || 'apps', label: line.slice(idx + 1).trim() || 'Screen' }
+            : { icon: 'apps', label: line };
+        });
+    }
+
+    if (!entries.length) {
+      var single = { id: S.util.uid(), name: 'Home', icon: 'msr:home', screen: list };
+      return { pages: [single], activePageId: single.id };
+    }
+
+    var activeIndex = Math.max(0, Math.min(entries.length - 1, Number(nav.props.active) || 0));
+    var pages = entries.map(function (entry, index) {
+      var pageScreen = list;
+      if (index !== activeIndex) {
+        pageScreen = [];
+        var copy = S.makeBlock('bottomnav', { items: nav.props.items, active: index });
+        if (copy) pageScreen.push(copy);
+      }
+      return {
+        id: S.util.uid(),
+        name: entry.label,
+        icon: entry.icon,
+        screen: pageScreen
+      };
+    });
+
+    return { pages: pages, activePageId: pages[activeIndex].id };
+  };
+
   S.defaultState = function () {
     var built = S.buildTemplate('app', 'discover');
+    var made = S.pagesFromScreen(built.screen);
+    var active = made.pages.filter(function (p) { return p.id === made.activePageId; })[0] || made.pages[0];
     return {
       version: 2,
       target: 'app',
       device: built.device,
-      screen: built.screen,
+      screen: active.screen,
+      pages: made.pages,
+      activePageId: active.id,
       selectedId: null,
       stash: {},
       theme: built.theme,

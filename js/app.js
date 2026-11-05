@@ -260,6 +260,11 @@
 
       S.State.data.screen.push(item);
       S.State.data.selectedId = item.id;
+
+      /* A new tab bar adopts the existing screen names and order. */
+      if (S.State.data.target === 'app' && type === 'bottomnav') {
+        S.State.syncNavFromPages();
+      }
       S.State.commit(null);
       this.refresh('structure');
       this.select(item.id);
@@ -395,10 +400,18 @@
       U.toast(S.State.data.target === 'app' ? 'Screen cleared' : 'Page cleared');
     },
 
+    /* Open another bottom-navigation screen while staying in the editor. */
+    switchPageIndex: function (index) {
+      if (!S.State.switchPageIndex(index)) return;
+      this.select(null);
+      U.toast('Editing “' + (S.State.data.pages[index] || {}).name + '”');
+    },
+
     setTarget: function (target) {
       var d = S.State.data;
       if (!S.targets[target] || d.target === target) return;
 
+      S.State.syncActivePage();
       d.stash[d.target] = { screen: d.screen, device: d.device, selectedId: d.selectedId };
 
       var entry = d.stash[target];
@@ -411,6 +424,17 @@
       d.screen = entry.screen;
       d.device = entry.device;
       d.selectedId = entry.selectedId || null;
+
+      /* Returning to the app canvas re-opens the page that was being edited. */
+      if (target === 'app' && Array.isArray(d.pages) && d.pages.length) {
+        var page = S.State.pageById(d.activePageId) || d.pages[0];
+        if (page) {
+          d.activePageId = page.id;
+          d.screen = page.screen;
+          d.selectedId = d.selectedId && d.screen.some(function (it) { return it.id === d.selectedId; })
+            ? d.selectedId : null;
+        }
+      }
       S.iconTarget = null;
 
       S.State.commit('target:' + target);
@@ -430,6 +454,15 @@
       d.device = built.device;
       d.selectedId = null;
       d.theme = built.theme;
+
+      /* A template replaces the whole project, so rebuild the screen list too. */
+      if (d.target === 'app') {
+        var made = S.pagesFromScreen(built.screen);
+        var active = made.pages.filter(function (p) { return p.id === made.activePageId; })[0] || made.pages[0];
+        d.pages = made.pages;
+        d.activePageId = active.id;
+        d.screen = active.screen;
+      }
 
       S.State.commit('template:' + id);
       this.refresh('all');

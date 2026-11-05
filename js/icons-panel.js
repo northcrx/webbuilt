@@ -61,6 +61,15 @@
         S.iconTarget = null;
       }
 
+      /* Screen tab icons. */
+      if (S.iconTarget && S.iconTarget.page) {
+        var page = (d.pages || []).filter(function (p) { return p.id === S.iconTarget.page; })[0];
+        if (page) {
+          return { page: true, id: page.id, label: page.name, manual: true };
+        }
+        S.iconTarget = null;
+      }
+
       if (S.iconTarget) {
         var item = d.screen.filter(function (it) { return it.id === S.iconTarget.id; })[0];
         if (item) {
@@ -83,7 +92,7 @@
       var target = this.resolveTarget();
       var banner = document.getElementById('icon-target');
       if (banner) {
-        if (target && target.ui) {
+        if (target && (target.ui || target.page)) {
           banner.innerHTML = '<span class="mi">ads_click</span><span>Picking for <b>' + esc(target.label) + '</b> · icon</span>' +
             '<button class="mini" id="icon-target-done">Done</button>';
         } else if (target) {
@@ -150,6 +159,16 @@
     insert: function (name) {
       var target = this.resolveTarget();
       if (!target) { U.toast('Select a block that has an icon first'); return; }
+
+      /* Screen tab icon */
+      if (target.page) {
+        S.State.setPageIcon(target.id, name);
+        S.Render.drawScreen();
+        if (S.Inspector) S.Inspector.render();
+        this.sync();
+        U.toast('Icon: ' + S.iconName(name));
+        return;
+      }
 
       /* Drawer / menu item icon */
       if (target.ui) {

@@ -86,12 +86,64 @@
     (ui.menu.items || []).forEach(function (it) {
       out.push({ list: 'menu', id: it.id, label: it.label, icon: it.icon, kind: 'Menu' });
     });
+    pages().forEach(function (page, index) {
+      out.push({ list: 'page', id: String(index), label: page.name, icon: page.icon || 'msr:web_asset', kind: 'Screen' });
+    });
     (d.screen || []).forEach(function (block) {
       var def = S.components[block.type];
       if (!def) return;
       out.push({ list: 'block', id: block.id, label: def.label, icon: def.icon, kind: 'Block' });
     });
     return out;
+  }
+
+  function pages() {
+    var d = S.State.data;
+    return d.target === 'app' && Array.isArray(d.pages) ? d.pages : [];
+  }
+
+  function switchToPage(index) {
+    if (!pages()[index]) return false;
+    var changed = S.State.switchPageIndex(index);
+    if (S.App) S.App.select(null);
+    return changed;
+  }
+
+  function pageForLabel(label) {
+    var needle = String(label || '').trim().toLowerCase();
+    var list = pages();
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i].name || '').trim().toLowerCase() === needle) return i;
+    }
+    return -1;
+  }
+
+  function pageWithSearch() {
+    var list = pages();
+    for (var i = 0; i < list.length; i++) {
+      var found = (list[i].screen || []).some(function (block) {
+        return block.type === 'searchpage';
+      });
+      if (found) return i;
+    }
+    return -1;
+  }
+
+  /* Filter the results inside an embedded search page block. */
+  function runSearchPage(box) {
+    if (!box) return;
+    var input = box.querySelector('.sp-input');
+    var q = String((input && input.value) || '').trim().toLowerCase();
+    var rows = box.querySelectorAll('.sp-result');
+    var shown = 0;
+    Array.prototype.forEach.call(rows, function (row) {
+      var text = (row.getAttribute('data-sp-text') || row.textContent || '').toLowerCase();
+      var hit = !q || text.indexOf(q) > -1;
+      row.hidden = !hit;
+      if (hit) shown++;
+    });
+    var empty = box.querySelector('.sp-empty');
+    if (empty) empty.hidden = shown > 0;
   }
 
   function resultRow(it) {
@@ -120,7 +172,7 @@
       var quick = (ui.drawer.items || []).slice(0, 4);
       var html = '<div class="ui-search-label">Recent searches</div>' +
         (recent.length ? '<div class="ui-recent">' + recent.map(pill).join('') + '</div>' :
-          '<p class="ui-search-empty">Search pages, blocks and menu actions.</p>');
+          '<p class="ui-search-empty">' + esc(ui.search && ui.search.hint || 'Search screens, blocks and menu actions.') + '</p>');
       if (quick.length) {
         html += '<div class="ui-search-label">Quick links</div><div class="ui-recent">' +
           quick.map(function (it) { return pill(it.label); }).join('') + '</div>';
@@ -147,6 +199,17 @@
       e.preventDefault();
       e.stopPropagation();
       var type = action.getAttribute('data-ui-action');
+      if (type === 'search') {
+        var ui = S.State.data.ui || S.defaultUI();
+        if (ui.search && ui.search.mode === 'page') {
+          var searchPage = pageWithSearch();
+          if (searchPage > -1) {
+            closeAll();
+            switchToPage(searchPage);
+            return;
+          }
+        }
+      }
       if (type === 'drawer' || type === 'menu' || type === 'search') open(type, frame, action);
       return;
     }
@@ -155,6 +218,77 @@
       e.preventDefault();
       e.stopPropagation();
       closeAll();
+      return;
+    }
+
+    /* Bottom-navigation tabs open the matching screen for editing. */
+    var navTab = e.target.closest('.nav-item[data-page-index]');
+    if (navTab) {
+      e.preventDefault();
+      e.stopPropagation();
+      var navIndex = Number(navTab.getAttribute('data-page-index'));
+      if (S.State.data.target === 'app') switchToPage(navIndex);
+      return;
+    }
+
+    var chip = e.target.closest('[data-ui-chip]');
+    if (chip) {
+      e.preventDefault();
+      e.stopPropagation();
+      var chipBox = chip.closest('.ui-search');
+      var chipInput = chipBox && chipBox.querySelector('.ui-search-input');
+      if (chipInput) {
+        chipInput.value = chip.getAttribute('data-ui-chip');
+        Array.prototype.forEach.call(chipBox.querySelectorAll('.ui-chip'), function (c) {
+          c.classList.toggle('active', c === chip);
+        });
+        renderSearch(chipBox);
+        chipInput.focus();
+      }
+      return;
+    }
+
+    var spChip = e.target.closest('[data-sp-chip]');
+    if (spChip) {
+      e.preventDefault();
+      e.stopPropagation();
+      var spBox = spChip.closest('.search-page');
+      Array.prototype.forEach.call(spBox.querySelectorAll('.sp-chip'), function (c) {
+        c.classList.toggle('active', c === spChip);
+      });
+      var spInput = spBox && spBox.querySelector('.sp-input');
+      if (spInput) {
+        spInput.value = spChip.getAttribute('data-sp-chip');
+        if (spInput.value === 'All') spInput.value = '';
+        runSearchPage(spBox);
+        spInput.focus();
+      }
+      return;
+    }
+
+    var spClear = e.target.closest('[data-sp-clear]');
+    if (spClear) {
+      e.preventDefault();
+      e.stopPropagation();
+      var clearBox = spClear.closest('.search-page');
+      var clearInput = clearBox && clearBox.querySelector('.sp-input');
+      if (clearInput) {
+        clearInput.value = '';
+        runSearchPage(clearBox);
+        clearInput.focus();
+      }
+      return;
+    }
+
+    /* Search page back arrow returns to the previous screen. */
+    var spBack = e.target.closest('.sp-back');
+    if (spBack) {
+      e.preventDefault();
+      e.stopPropagation();
+      var backList = pages();
+      var currentIndex = backList.map(function (p) { return p.id; }).indexOf(S.State.data.activePageId);
+      var backTarget = currentIndex > 0 ? currentIndex - 1 : (backList.length > 1 ? 1 : 0);
+      if (backList.length) switchToPage(backTarget);
       return;
     }
 
@@ -171,6 +305,8 @@
       S.State.commit('ui:active');
       S.Render.drawScreen();
       S.Inspector.render();
+      var drawerTarget = pageForLabel(label);
+      if (drawerTarget > -1) switchToPage(drawerTarget);
       U.toast('Opened ' + label);
       return;
     }
@@ -235,6 +371,13 @@
       return;
     }
 
+    if (list === 'page') {
+      closeAll();
+      switchToPage(Number(id));
+      U.toast('Editing ' + label);
+      return;
+    }
+
     if (list === 'drawer' && id) {
       closeAll();
       var d = S.State.data;
@@ -243,6 +386,8 @@
       S.State.commit('ui:active');
       S.Render.drawScreen();
       S.Inspector.render();
+      var drawerTarget = pageForLabel(label);
+      if (drawerTarget > -1) switchToPage(drawerTarget);
       U.toast('Opened ' + label);
       return;
     }
@@ -261,6 +406,10 @@
       stage.addEventListener('click', handlerClick, true);
 
       stage.addEventListener('input', function (e) {
+        if (e.target.classList.contains('sp-input')) {
+          runSearchPage(e.target.closest('.search-page'));
+          return;
+        }
         if (!e.target.classList.contains('ui-search-input')) return;
         renderSearch(e.target.closest('.ui-search'));
       });

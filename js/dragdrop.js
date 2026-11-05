@@ -301,6 +301,12 @@
     suppressClicks();
 
     var ids = blockIds(drag.cmp);
+    /* The flow only contains scrollable blocks; pinned dock blocks (bottom
+       navigation, docked mini player) live outside it. Append them so the
+       state reorder still covers every block. */
+    S.State.data.screen.forEach(function (item) {
+      if (ids.indexOf(item.id) === -1) ids.push(item.id);
+    });
     S.State.reorder(ids);
     S.App.refresh('structure');
     if (S.App && S.App.select) S.App.select(drag.item.id);

@@ -6,6 +6,8 @@
   var U = S.util;
   var esc = U.esc;
   var highlightTimer = null;
+  var navDrag = null;
+  var pageDrag = null;
 
   /* Friendly hints shown under every field. Explicit `hint` on a field wins. */
   var HINTS = {
@@ -50,9 +52,13 @@
       var d = S.State.data;
       var item = d.screen.filter(function (it) { return it.id === d.selectedId; })[0];
 
-      /* Preserve the Navigation disclosure across add/delete/reorder rerenders. */
+      /* Preserve disclosures across add/delete/reorder rerenders. */
       var nav = box.querySelector('.nav-sect');
       if (nav) this._navOpen = nav.open;
+      var pagesSect = box.querySelector('.pages-sect');
+      if (pagesSect) this._pagesOpen = pagesSect.open;
+      var searchSect = box.querySelector('.search-sect');
+      if (searchSect) this._searchOpen = searchSect.open;
 
       box.innerHTML = item ? this.componentPanel(item) : this.emptyPanel();
 
@@ -92,15 +98,20 @@
         (isApp
           ? '<div class="f-row"><div class="f-label">Status bar</div>' +
             '<button class="f-toggle' + (d.device.statusBar ? ' on' : '') + '" data-device="statusBar">' +
-            '<span class="tgl"></span><span>Show status bar</span></button></div>' +
+            '<span class="tgl"></span><span>Show status bar</span></button>' +
+            '<small class="f-hint">Android status icons and clock at the top of the screen.</small></div>' +
             '<div class="f-row"><div class="f-label">Gesture bar</div>' +
             '<button class="f-toggle' + (d.device.gestureBar ? ' on' : '') + '" data-device="gestureBar">' +
-            '<span class="tgl"></span><span>Show gesture bar</span></button></div>'
+            '<span class="tgl"></span><span>Show gesture bar</span></button>' +
+            '<small class="f-hint">The swipe handle at the bottom of the phone.</small></div>'
           : '') +
         '<div class="f-row"><div class="f-label">Appearance</div>' +
         '<button class="f-toggle' + (dark ? ' on' : '') + '" data-theme-dark>' +
-        '<span class="tgl"></span><span>Dark mode</span></button></div>' +
+        '<span class="tgl"></span><span>Dark mode</span></button>' +
+        '<small class="f-hint">Switch the whole project between light and dark surfaces.</small></div>' +
         '</div>' +
+
+        this.pagesSection() +
 
         '<div class="sect">' +
         '<div class="sect-title">Start here</div>' +
@@ -153,7 +164,8 @@
         /* Advanced */
         this.advancedSection(item, lockLabel, hideLabel) +
 
-        /* Phase B — drawer / menu content */
+        /* Screens + Phase B — drawer / menu content */
+        this.pagesSection() +
         this.navSection() +
 
         '<p class="inspect-note">Click any text in the preview to edit it directly. Enter saves · Esc cancels.</p>';
@@ -240,6 +252,62 @@
         '</div>';
     },
 
+    /* Screens are the bottom-navigation tabs. Renaming, recolouring or moving
+       one here immediately updates every tab bar on every screen. */
+    pagesSection: function () {
+      var d = S.State.data;
+      if (d.target !== 'app' || !Array.isArray(d.pages) || !d.pages.length) return '';
+      this._pagesOpen = this._pagesOpen !== false;
+
+      var rows = d.pages.map(function (page, index) {
+        var active = page.id === d.activePageId;
+        return '<div class="page-row' + (active ? ' is-active' : '') + '" data-page-row="' + esc(page.id) + '" data-page-index="' + index + '">' +
+          '<span class="nav-grip mi" draggable="true" data-page-grip="' + esc(page.id) + '" title="Drag to reorder" aria-hidden="true">drag_indicator</span>' +
+          '<button type="button" class="nav-ico" data-page-icon="' + esc(page.id) + '" title="Change tab icon" aria-label="Change icon for ' + esc(page.name) + '">' + S.icon(page.icon || 'msr:apps') + '</button>' +
+          '<input class="f-input nav-name" type="text" value="' + esc(page.name) + '" data-page-name="' + esc(page.id) + '" placeholder="Screen name" aria-label="Screen name">' +
+          '<button type="button" class="mini' + (active ? ' on' : '') + '" data-page-open="' + esc(page.id) + '" title="' + (active ? 'Editing this screen' : 'Edit this screen') + '" aria-label="Open ' + esc(page.name) + '"><span class="mi">' + (active ? 'check' : 'open_in_new') + '</span></button>' +
+          '<button type="button" class="mini" data-page-move="-1" data-page-id="' + esc(page.id) + '" title="Move left" aria-label="Move screen left"><span class="mi">chevron_left</span></button>' +
+          '<button type="button" class="mini" data-page-move="1" data-page-id="' + esc(page.id) + '" title="Move right" aria-label="Move screen right"><span class="mi">chevron_right</span></button>' +
+          (d.pages.length > 1 ? '<button type="button" class="mini danger" data-page-del="' + esc(page.id) + '" title="Delete screen" aria-label="Delete screen"><span class="mi">close</span></button>' : '') +
+          '</div>';
+      }).join('');
+
+      return '<details class="sect pages-sect"' + (this._pagesOpen ? ' open' : '') + '>' +
+        '<summary class="sect-title">Screens <span class="count">' + d.pages.length + '</span></summary>' +
+        '<div class="pages-list">' + rows + '</div>' +
+        '<div class="f-pair" style="margin-top:8px">' +
+        '<button type="button" class="mini wide" data-page-add><span class="mi">add</span>Add screen</button>' +
+        '<button type="button" class="mini wide" data-page-add-search><span class="mi">manage_search</span>Search screen</button>' +
+        '</div>' +
+        '<small class="f-hint">Each screen is a bottom-navigation tab. Drag the grip to reorder; every tab bar updates.</small>' +
+        '</details>';
+    },
+
+    /* Search overlay settings: mode, placeholder, filter chips and hint. */
+    searchSection: function () {
+      var d = S.State.data;
+      var ui = d.ui || S.defaultUI();
+      var search = ui.search || S.defaultUI().search;
+      this._searchOpen = !!this._searchOpen;
+      return '<details class="sect search-sect"' + (this._searchOpen ? ' open' : '') + '>' +
+        '<summary class="sect-title">Search experience</summary>' +
+        '<div class="f-row"><div class="f-label">Opens as</div>' +
+        '<select class="f-select" data-search-mode aria-label="Search opening mode">' +
+        '<option value="overlay"' + (search.mode !== 'page' ? ' selected' : '') + '>Overlay sheet</option>' +
+        '<option value="page"' + (search.mode === 'page' ? ' selected' : '') + '>Dedicated screen</option>' +
+        '</select><small class="f-hint">Dedicated mode jumps to the screen that contains a Search page block.</small></div>' +
+        '<div class="f-row"><div class="f-label">Placeholder</div>' +
+        '<input class="f-input" type="text" value="' + esc(search.placeholder || '') + '" data-search-field="placeholder" aria-label="Search placeholder">' +
+        '<small class="f-hint">Shown inside the search field before anything is typed.</small></div>' +
+        '<div class="f-row"><div class="f-label">Filter chips (comma separated)</div>' +
+        '<input class="f-input" type="text" value="' + esc(search.chips || '') + '" data-search-field="chips" aria-label="Search filter chips">' +
+        '<small class="f-hint">Quick filters displayed under the search bar.</small></div>' +
+        '<div class="f-row"><div class="f-label">Helper text</div>' +
+        '<input class="f-input" type="text" value="' + esc(search.hint || '') + '" data-search-field="hint" aria-label="Search helper text">' +
+        '<small class="f-hint">Empty-state tip shown before a query is entered.</small></div>' +
+        '</details>';
+    },
+
     /* Phase B — edit the drawer header and the items inside the drawer and
        three-dot menu. Icons reuse the existing icon picker. */
     navSection: function () {
@@ -251,7 +319,7 @@
 
       var row = function (list, it) {
         return '<div class="nav-row" data-nav-row="' + list + '" data-nav-id="' + esc(it.id) + '">' +
-          '<span class="nav-grip mi" aria-hidden="true">drag_indicator</span>' +
+          '<span class="nav-grip mi" draggable="true" data-nav-grip="' + list + '" data-nav-id="' + esc(it.id) + '" title="Drag to reorder" aria-hidden="true">drag_indicator</span>' +
           '<button type="button" class="nav-ico" data-nav-icon="' + esc(it.id) + '" data-nav-list="' + list +
           '" title="Change icon" aria-label="Change icon for ' + esc(it.label) + '">' + S.icon(it.icon) + '</button>' +
           '<input class="f-input nav-name" type="text" value="' + esc(it.label) + '" data-nav-item="' + esc(it.id) +
@@ -278,6 +346,8 @@
 
         '<div class="nav-head-edit">' +
         '<div class="f-label"><span>Drawer header</span></div>' +
+        '<button type="button" class="f-toggle' + (ui.drawer.showHeader !== false ? ' on' : '') + '" data-drawer-header-toggle aria-pressed="' + (ui.drawer.showHeader !== false) + '">' +
+        '<span class="tgl"></span><span>' + (ui.drawer.showHeader !== false ? 'Profile header shown' : 'Profile header hidden') + '</span></button>' +
         '<input class="f-input" type="text" value="' + esc(header.title || '') + '" data-nav-header="title" placeholder="Title" aria-label="Drawer title">' +
         '<div class="f-pair">' +
         '<input class="f-input" type="text" value="' + esc(header.subtitle || '') + '" data-nav-header="subtitle" placeholder="Subtitle" aria-label="Drawer subtitle">' +
@@ -298,8 +368,9 @@
         rows('menu') +
         '</div>' +
 
-        '<small class="f-hint">Click an icon to swap it. Changes save automatically and undo with Ctrl+Z.</small>' +
-        '</details>';
+        '<small class="f-hint">Drag the grip to reorder. Click an icon to swap it. Changes save automatically and undo with Ctrl+Z.</small>' +
+        '</details>' +
+        this.searchSection();
     },
 
     navEntry: function (list) {
@@ -347,6 +418,21 @@
       entry.items.splice(to, 0, item);
       S.State.commit('ui:move:' + list);
       this.afterNavChange();
+    },
+
+    /* Drag-and-drop reorder: move one nav item before another. */
+    navMoveBefore: function (list, id, beforeId) {
+      var entry = this.navEntry(list);
+      var from = entry.items.map(function (it) { return it.id; }).indexOf(id);
+      if (from < 0 || id === beforeId) return false;
+      var item = entry.items.splice(from, 1)[0];
+      var to = entry.items.map(function (it) { return it.id; }).indexOf(beforeId);
+      if (to < 0) to = entry.items.length;
+      if (from < to) to--;
+      entry.items.splice(to, 0, item);
+      S.State.commit('ui:move:' + list);
+      this.afterNavChange();
+      return true;
     },
 
     afterNavChange: function () {
@@ -517,6 +603,26 @@
           return;
         }
 
+        /* Screen name — keeps every bottom navigation tab in sync. */
+        var pageName = el.getAttribute('data-page-name');
+        if (pageName) {
+          S.State.renamePage(pageName, el.value);
+          S.Render.drawScreen();
+          return;
+        }
+
+        /* Search overlay settings */
+        var searchField = el.getAttribute('data-search-field');
+        if (searchField) {
+          var searchData = S.State.data;
+          searchData.ui = searchData.ui || S.defaultUI();
+          searchData.ui.search = searchData.ui.search || S.defaultUI().search;
+          searchData.ui.search[searchField] = el.value;
+          S.Render.drawScreen();
+          S.State.commit('ui:search:' + searchField);
+          return;
+        }
+
         /* Drawer header text */
         var navHeader = el.getAttribute('data-nav-header');
         if (navHeader) {
@@ -563,6 +669,13 @@
             if (field && field.max != null) value = Math.min(field.max, value);
           }
           U.setPath(item.props, key, value);
+
+          /* Editing a bottom-navigation tab list grows/shrinks the screen list
+             too, keeping page content by position. */
+          if (item.type === 'bottomnav' && key === 'items') {
+            S.State.syncPagesFromNav();
+            S.State.syncNavFromPages();
+          }
 
           box.querySelectorAll('[data-key="' + key + '"]').forEach(function (other) {
             if (other !== el) other.value = value;
@@ -624,6 +737,16 @@
           return;
         }
 
+        if (el.hasAttribute('data-search-mode')) {
+          var searchData = S.State.data;
+          searchData.ui = searchData.ui || S.defaultUI();
+          searchData.ui.search = searchData.ui.search || S.defaultUI().search;
+          searchData.ui.search.mode = el.value === 'page' ? 'page' : 'overlay';
+          S.Render.drawScreen();
+          S.State.commit('ui:search-mode');
+          return;
+        }
+
         var styleSelect = el.getAttribute('data-style-select');
         if (styleSelect) {
           var styleItem = self.selected();
@@ -679,6 +802,63 @@
         }
         if (btn.hasAttribute('data-nav-add')) {
           self.navAdd(btn.getAttribute('data-nav-add'));
+          return;
+        }
+
+        /* Screen manager */
+        if (btn.hasAttribute('data-page-add')) {
+          S.State.addPage();
+          S.App.refresh('all');
+          S.App.select(null);
+          U.toast('Screen added to the bottom navigation');
+          return;
+        }
+        if (btn.hasAttribute('data-page-add-search')) {
+          var searchPageData = S.State.addPage();
+          var searchBlock = S.makeBlock('searchpage');
+          if (searchBlock) searchPageData.screen.push(searchBlock);
+          S.State.commit('page:search');
+          S.App.refresh('all');
+          S.App.select(searchBlock ? searchBlock.id : null);
+          U.toast('Search screen added');
+          return;
+        }
+        var pageOpen = btn.getAttribute('data-page-open');
+        if (pageOpen) {
+          if (pageOpen !== S.State.data.activePageId) {
+            S.State.switchPage(pageOpen);
+            S.App.select(null);
+          }
+          return;
+        }
+        var pageDel = btn.getAttribute('data-page-del');
+        if (pageDel) {
+          S.State.removePage(pageDel);
+          S.App.refresh('all');
+          return;
+        }
+        var pageMove = btn.getAttribute('data-page-move');
+        if (pageMove) {
+          S.State.movePage(btn.getAttribute('data-page-id'), Number(pageMove));
+          S.App.refresh('all');
+          return;
+        }
+        var pageIcon = btn.getAttribute('data-page-icon');
+        if (pageIcon) {
+          S.iconTarget = { page: pageIcon };
+          S.App.showTab('icons');
+          S.IconsPanel.sync();
+          return;
+        }
+
+        if (btn.hasAttribute('data-drawer-header-toggle')) {
+          var toggleData = S.State.data;
+          toggleData.ui = toggleData.ui || S.defaultUI();
+          toggleData.ui.drawer = toggleData.ui.drawer || S.defaultUI().drawer;
+          toggleData.ui.drawer.showHeader = toggleData.ui.drawer.showHeader === false;
+          S.Render.drawScreen();
+          S.State.commit('ui:drawer-head');
+          self.render();
           return;
         }
 
@@ -753,6 +933,94 @@
         if (btn.hasAttribute('data-theme-dark')) {
           S.Theme.setDark(!S.State.data.theme.dark);
         }
+      });
+
+      /* Drag-to-reorder for drawer/menu rows and screen rows. The grip is the
+         only draggable part so text inputs keep their normal selection. */
+      function clearDragMarks() {
+        box.querySelectorAll('.is-dragging, .drag-over').forEach(function (el) {
+          el.classList.remove('is-dragging', 'drag-over');
+        });
+      }
+
+      box.addEventListener('dragstart', function (e) {
+        var grip = e.target.closest('[data-nav-grip],[data-page-grip]');
+        if (!grip) return;
+        if (grip.hasAttribute('data-nav-grip')) {
+          navDrag = { list: grip.getAttribute('data-nav-grip'), id: grip.getAttribute('data-nav-id') };
+          var navRow = grip.closest('.nav-row');
+          if (navRow) navRow.classList.add('is-dragging');
+        } else {
+          pageDrag = { id: grip.getAttribute('data-page-grip') };
+          var pageRow = grip.closest('.page-row');
+          if (pageRow) pageRow.classList.add('is-dragging');
+        }
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          try { e.dataTransfer.setData('text/plain', ''); } catch (err) { /* older browsers */ }
+        }
+      });
+
+      box.addEventListener('dragover', function (e) {
+        var row = e.target.closest('.nav-row,.page-row');
+        if (!row) return;
+        var usable = (navDrag && row.classList.contains('nav-row') &&
+          row.getAttribute('data-nav-row') === navDrag.list) ||
+          (pageDrag && row.classList.contains('page-row'));
+        if (!usable) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        box.querySelectorAll('.drag-over').forEach(function (el) {
+          if (el !== row) el.classList.remove('drag-over');
+        });
+        row.classList.add('drag-over');
+      });
+
+      box.addEventListener('dragleave', function (e) {
+        var row = e.target.closest('.nav-row,.page-row');
+        if (row) row.classList.remove('drag-over');
+      });
+
+      box.addEventListener('drop', function (e) {
+        var row = e.target.closest('.nav-row,.page-row');
+        if (!row) return;
+        e.preventDefault();
+
+        /* Drop below the pointer midpoint so dragging down feels natural. */
+        var rect = row.getBoundingClientRect();
+        var after = e.clientY > rect.top + rect.height / 2;
+        var next = after ? row.nextElementSibling : row;
+
+        if (navDrag && row.classList.contains('nav-row') &&
+            row.getAttribute('data-nav-row') === navDrag.list) {
+          var beforeId = null;
+          if (next && next.classList && next.classList.contains('nav-row')) {
+            beforeId = next.getAttribute('data-nav-id');
+          } else if (!after) {
+            beforeId = row.getAttribute('data-nav-id');
+          }
+          var moved = navDrag;
+          navDrag = null;
+          clearDragMarks();
+          self.navMoveBefore(moved.list, moved.id, beforeId);
+          return;
+        }
+
+        if (pageDrag && row.classList.contains('page-row')) {
+          var pageBefore = next && next.classList && next.classList.contains('page-row')
+            ? next.getAttribute('data-page-row') : null;
+          var movedPage = pageDrag;
+          pageDrag = null;
+          clearDragMarks();
+          S.State.movePageBefore(movedPage.id, pageBefore);
+          return;
+        }
+      });
+
+      box.addEventListener('dragend', function () {
+        navDrag = null;
+        pageDrag = null;
+        clearDragMarks();
       });
     },
 

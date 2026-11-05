@@ -1665,4 +1665,29 @@ html[data-ui="light"] .search-clear:hover { background: rgba(20, 18, 38, .06); }
 .nav-row .mini .mi { font-size: 16px; }
 .nav-empty { margin: 0 0 8px; font-size: 11px; color: var(--muted-2); }
 
-
+/* Screen manager rows reuse the navigation row styling. */
+.pages-list { display: flex; flex-direction: column; gap: 0; }
+.page-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 5px;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.page-row.is-active { border-color: rgba(139, 108, 246, .55); background: rgba(139, 108, 246, .1); }
+.page-row .mini { width: 24px; height: 24px; min-width: 24px; padding: 0; flex: 0 0 auto; }
+.page-row .mini .mi { font-size: 16px; }
+.page-row .mini.on { color: var(--accent); background: rgba(139, 108, 246, .18); }
+.page-row .mini.danger:hover { color: #ff8f8f; }
+.nav-grip[draggable="true"] { cursor: grab; }
+.nav-grip[draggable="true"]:active { cursor: grabbing; }
+.nav-row.is-dragging, .page-row.is-dragging { opacity: .45; }
+.nav-row.drag-over, .page-row.drag-over {
+  box-shadow: inset 0 2px 0 var(--accent);
+  border-color: rgba(139, 108, 246, .6);
+}
+.pages-sect .f-pair { gap: 6px; }
+.pages-sect .f-pair .mini { flex: 1; justify-content: center; }
