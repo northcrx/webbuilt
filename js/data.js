@@ -45,6 +45,7 @@
     { name: 'Onest', cat: 'Sans', w: [400, 500, 600, 700] },
     { name: 'PT Sans', cat: 'Sans', w: [400, 700] },
     { name: 'Raleway', cat: 'Sans', w: [400, 500, 600, 700] },
+    { name: 'Oswald', cat: 'Sans', w: [300, 400, 500, 600, 700] },
     { name: 'Red Hat Display', cat: 'Sans', w: [400, 500, 600, 700] },
     { name: 'Schibsted Grotesk', cat: 'Sans', w: [400, 500, 600, 700] },
     { name: 'Ubuntu', cat: 'Sans', w: [400, 500, 700] },
@@ -113,11 +114,13 @@
       html: function (p) {
         var actions = String(p.actions || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
         var leading = p.leading
-          ? '<button class="icon-btn" aria-label="Menu">' + S.icon(p.leadingIcon) + '</button>'
+          ? '<button class="icon-btn" aria-label="Open navigation" data-ui-action="drawer">' + S.icon(p.leadingIcon) + '</button>'
           : '';
         var actHTML = actions.map(function (a) {
           if (a === 'avatar') return '<span class="avatar">AL</span>';
-          return '<button class="icon-btn" aria-label="' + esc(a) + '">' + S.icon(a) + '</button>';
+          var ui = a === 'search' ? 'search' : (a === 'more_vert' || a === 'more_horiz' ? 'menu' : '');
+          return '<button class="icon-btn" aria-label="' + esc(a) + '"' +
+            (ui ? ' data-ui-action="' + ui + '"' : '') + '>' + S.icon(a) + '</button>';
         }).join('');
 
         if (p.variant === 'large') {
@@ -489,6 +492,7 @@
       props: Object.assign({}, def.defaults, overrides || {}),
       children: [],
       style: {},
+      typography: {},
       locked: false,
       hidden: false
     };

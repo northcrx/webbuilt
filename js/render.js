@@ -129,6 +129,82 @@
       return css.join(';');
     },
 
+    /* Per-block typography becomes CSS variables so the inspector can update
+       one block without touching the theme or the shared component styles. */
+    typographyStyle: function (item) {
+      var t = (item && item.typography) || {};
+      var css = [];
+      if (t.family) css.push('--typo-family:' + U.fontStack(t.family));
+      if (t.size) css.push('--typo-size:' + t.size + 'px');
+      if (t.weight) css.push('--typo-weight:' + t.weight);
+      if (t.color) css.push('--typo-color:' + t.color);
+      if (t.align) css.push('--typo-align:' + t.align);
+      if (t.lineHeight) css.push('--typo-line-height:' + t.lineHeight);
+      if (t.letterSpacing) css.push('--typo-letter-spacing:' + t.letterSpacing + 'px');
+      return css.join(';');
+    },
+
+    hasTypography: function (item) {
+      var t = (item && item.typography) || {};
+      return !!(t.family || t.size || t.weight || t.color || t.align || t.lineHeight || t.letterSpacing);
+    },
+
+    /* Exported blocks keep the per-block size/style controls as well as the
+       typography, but none of the editor-only chrome. */
+    exportBlock: function (item) {
+      var def = S.components[item.type];
+      if (!def) return '';
+      var style = [this.blockStyle(item), this.typographyStyle(item)].filter(Boolean).join(';');
+      return '<section class="cmp cmp-' + item.type + '"' +
+        (this.hasTypography(item) ? ' data-typo="1"' : '') +
+        (style ? ' style="' + esc(style) + '"' : '') + '>' +
+        def.html(item.props || {}, item) + '</section>';
+    },
+
+    /* Drawer, three-dot menu and search screen. Kept in shared markup so the
+       exporter gets exactly the same controls as the editor preview. */
+    overlayMarkup: function () {
+      var d = S.State.data;
+      var ui = (d.ui && d.ui.drawer && d.ui.menu) ? d.ui : S.defaultUI();
+      var header = ui.drawer.header || {};
+
+      var drawerItems = (ui.drawer.items || []).map(function (it) {
+        return '<button type="button" class="ui-drawer-item' + (it.active ? ' active' : '') + '" ' +
+          'data-ui-item="drawer" data-ui-id="' + esc(it.id) + '" data-ui-label="' + esc(it.label) + '">' +
+          '<span class="ui-ico">' + S.icon(it.icon) + '</span><span class="ui-item-text">' + esc(it.label) + '</span>' +
+          '</button>';
+      }).join('');
+
+      var menuItems = (ui.menu.items || []).map(function (it) {
+        return '<button type="button" class="ui-menu-item" role="menuitem" ' +
+          'data-ui-item="menu" data-ui-id="' + esc(it.id) + '" data-ui-label="' + esc(it.label) + '">' +
+          '<span class="ui-ico">' + S.icon(it.icon) + '</span><span class="ui-item-text">' + esc(it.label) + '</span>' +
+          '</button>';
+      }).join('');
+
+      return '<div class="ui-scrim" data-ui-close="1" aria-hidden="true"></div>' +
+        '<aside class="ui-drawer" role="dialog" aria-modal="true" aria-label="Navigation drawer" aria-hidden="true">' +
+        '<div class="ui-drawer-head">' +
+        '<span class="ui-avatar">' + esc(header.avatar || 'A') + '</span>' +
+        '<div class="ui-drawer-id"><strong>' + esc(header.title || 'Navigation') + '</strong>' +
+        '<small>' + esc(header.subtitle || '') + '</small></div>' +
+        '<button type="button" class="ui-icon-btn" data-ui-close="1" aria-label="Close navigation"><span class="mi">close</span></button>' +
+        '</div>' +
+        '<nav class="ui-drawer-nav">' + (drawerItems || '<p class="ui-empty">No drawer items yet.</p>') + '</nav>' +
+        '</aside>' +
+        '<div class="ui-menu" role="menu" aria-label="More actions" aria-hidden="true">' +
+        (menuItems || '<p class="ui-empty">No menu items yet.</p>') +
+        '</div>' +
+        '<div class="ui-search" role="dialog" aria-modal="true" aria-label="Search" aria-hidden="true">' +
+        '<div class="ui-search-bar">' +
+        '<button type="button" class="ui-icon-btn" data-ui-close="1" aria-label="Close search"><span class="mi">arrow_back</span></button>' +
+        '<input type="search" class="ui-search-input" placeholder="Search pages and actions…" aria-label="Search">' +
+        '<button type="button" class="ui-icon-btn" data-ui-search-clear="1" aria-label="Clear search"><span class="mi">close</span></button>' +
+        '</div>' +
+        '<div class="ui-search-body"><div class="ui-search-results"></div></div>' +
+        '</div>';
+    },
+
     /* Small editor-only toolbar shown on the selected block. Export uses
        componentMarkup, so none of this reaches the exported file. */
     blockChrome: function (item) {
@@ -155,8 +231,9 @@
         if (selecting && item.id === selectedId) classes += ' is-selected';
         if (item.hidden) classes += ' is-hidden';
         if (item.locked) classes += ' is-locked';
-        var style = self.blockStyle(item);
+        var style = [self.blockStyle(item), self.typographyStyle(item)].filter(Boolean).join(';');
         return '<section class="' + classes + '" data-id="' + item.id + '"' +
+          (self.hasTypography(item) ? ' data-typo="1"' : '') +
           (style ? ' style="' + esc(style) + '"' : '') + '>' +
           def.html(item.props || {}, item) + self.blockChrome(item) + '</section>';
       }).join('');
@@ -252,6 +329,12 @@
         frame.setAttribute('style', self.tokens(d.theme, font ? { ui: font, display: font } : null) +
           'width:' + d.device.width + 'px;height:' + d.device.height + 'px');
         frame.innerHTML = self.frameInner(target, !compare);
+        /* Keep overlays inside the page so they match the exported file:
+           phone screen, web page, or the whole extension window. */
+        var host = target === 'app' ? frame.querySelector('.phone-screen')
+          : target === 'web' ? frame.querySelector('.web-page')
+          : frame;
+        if (host) host.insertAdjacentHTML('beforeend', self.overlayMarkup());
         wrap.appendChild(frame);
         stage.appendChild(wrap);
       });
@@ -272,6 +355,10 @@
       var stageLabel = document.getElementById('stage-label');
       if (stageIcon) stageIcon.textContent = meta.icon;
       if (stageLabel) stageLabel.textContent = meta.stageLabel;
+
+      /* Overlays are replaced with every redraw; let the interaction layer
+         know any open drawer/menu/search was discarded. */
+      if (S.Interactions) S.Interactions.afterRender();
     },
 
     palette: function () {

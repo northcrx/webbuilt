@@ -28,6 +28,7 @@
       S.IconsPanel.init();
       S.Render.all();
       S.Inspector.render();
+      S.Typography.init();
       this.loadThemeFonts();
 
       this.bindToolbar();
@@ -39,6 +40,7 @@
       this.bindPalette();
       this.bindLayers();
       this.bindStage();
+      if (S.Interactions) S.Interactions.init();
       this.bindKeyboard();
       this.bindModal();
       this.bindZoom();
@@ -231,7 +233,7 @@
     select: function (id) {
       var d = S.State.data;
       var next = id || null;
-      if (next && S.iconTarget && S.iconTarget.id !== next) S.iconTarget = null;
+      if (next && S.iconTarget && !S.iconTarget.ui && S.iconTarget.id !== next) S.iconTarget = null;
 
       var changed = d.selectedId !== next;
       d.selectedId = next;

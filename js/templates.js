@@ -467,6 +467,29 @@
     };
   };
 
+  /* Drawer + three-dot menu content. Lives at project level so every target
+     shares the same navigation and undo/redo/export keeps working. */
+  S.defaultUI = function () {
+    return {
+      drawer: {
+        header: { title: 'Droid Lab', subtitle: 'alex@droidlab.app', avatar: 'AL' },
+        items: [
+          { id: 'drawer-home', label: 'Home', icon: 'msr:home', active: true },
+          { id: 'drawer-explore', label: 'Explore', icon: 'msr:explore', active: false },
+          { id: 'drawer-saved', label: 'Saved', icon: 'msr:bookmark', active: false },
+          { id: 'drawer-settings', label: 'Settings', icon: 'msr:settings', active: false }
+        ]
+      },
+      menu: {
+        items: [
+          { id: 'menu-share', label: 'Share', icon: 'msr:share' },
+          { id: 'menu-edit', label: 'Edit', icon: 'msr:edit' },
+          { id: 'menu-delete', label: 'Delete', icon: 'msr:delete' }
+        ]
+      }
+    };
+  };
+
   S.defaultState = function () {
     var built = S.buildTemplate('app', 'discover');
     return {
@@ -477,6 +500,7 @@
       selectedId: null,
       stash: {},
       theme: built.theme,
+      ui: S.defaultUI(),
       compare: { on: false, fonts: ['Inter', 'Plus Jakarta Sans', 'DM Sans'] }
     };
   };

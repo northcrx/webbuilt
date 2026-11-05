@@ -42,7 +42,9 @@
         '<a class="wnav-brand" href="#"><span class="wnav-mark">' + S.icon(p.logoIcon) + '</span>' +
         '<span data-edit="brand">' + esc(p.brand) + '</span></a>' +
         '<nav class="wnav-links">' + links + '</nav>' +
-        '<button class="web-btn wnav-cta">' + (p.ctaIcon ? S.icon(p.ctaIcon) : '') +
+        '<button type="button" class="wnav-icon" data-ui-action="search" aria-label="Search">' + S.icon('search') + '</button>' +
+        '<button type="button" class="wnav-icon" data-ui-action="drawer" aria-label="Open navigation">' + S.icon('menu') + '</button>' +
+        '<button type="button" class="web-btn wnav-cta">' + (p.ctaIcon ? S.icon(p.ctaIcon) : '') +
         '<span data-edit="cta">' + esc(p.cta) + '</span></button>' +
         '</div></header>';
     }

@@ -40,6 +40,27 @@
 
     resolveTarget: function () {
       var d = S.State.data;
+
+      /* Drawer / three-dot menu item icons. */
+      if (S.iconTarget && S.iconTarget.ui) {
+        var ui = d.ui || S.defaultUI();
+        var entry = ui[S.iconTarget.list];
+        var navItem = entry && (entry.items || []).filter(function (it) {
+          return it.id === S.iconTarget.itemId;
+        })[0];
+        if (navItem) {
+          return {
+            ui: true,
+            list: S.iconTarget.list,
+            itemId: navItem.id,
+            key: 'icon',
+            label: (S.iconTarget.list === 'drawer' ? 'Drawer' : 'Menu') + ' · ' + navItem.label,
+            manual: true
+          };
+        }
+        S.iconTarget = null;
+      }
+
       if (S.iconTarget) {
         var item = d.screen.filter(function (it) { return it.id === S.iconTarget.id; })[0];
         if (item) {
@@ -62,7 +83,10 @@
       var target = this.resolveTarget();
       var banner = document.getElementById('icon-target');
       if (banner) {
-        if (target) {
+        if (target && target.ui) {
+          banner.innerHTML = '<span class="mi">ads_click</span><span>Picking for <b>' + esc(target.label) + '</b> · icon</span>' +
+            '<button class="mini" id="icon-target-done">Done</button>';
+        } else if (target) {
           var field = S.components[S.State.data.screen.filter(function (i) { return i.id === target.id; })[0].type]
             .fields.filter(function (f) { return f.key === target.key; })[0];
           banner.innerHTML = '<span class="mi">ads_click</span><span>Picking for <b>' + esc(target.label) + '</b> · ' + esc(field ? field.label : target.key) + '</span>' +
@@ -126,6 +150,21 @@
     insert: function (name) {
       var target = this.resolveTarget();
       if (!target) { U.toast('Select a block that has an icon first'); return; }
+
+      /* Drawer / menu item icon */
+      if (target.ui) {
+        var d = S.State.data;
+        var entry = (d.ui || S.defaultUI())[target.list];
+        var navItem = entry && entry.items.filter(function (it) { return it.id === target.itemId; })[0];
+        if (!navItem) { U.toast('That item is gone — pick another'); return; }
+        navItem.icon = name;
+        S.State.commit('ui:icon:' + target.itemId);
+        S.Render.drawScreen();
+        if (S.Inspector) S.Inspector.render();
+        this.sync();
+        U.toast('Icon: ' + S.iconName(name));
+        return;
+      }
 
       var item = S.State.data.screen.filter(function (it) { return it.id === target.id; })[0];
       if (!item) { U.toast('That block is gone — pick another'); return; }

@@ -50,6 +50,10 @@
       var d = S.State.data;
       var item = d.screen.filter(function (it) { return it.id === d.selectedId; })[0];
 
+      /* Preserve the Navigation disclosure across add/delete/reorder rerenders. */
+      var nav = box.querySelector('.nav-sect');
+      if (nav) this._navOpen = nav.open;
+
       box.innerHTML = item ? this.componentPanel(item) : this.emptyPanel();
 
       /* Delegated listeners survive innerHTML updates; bind them only once. */
@@ -110,7 +114,8 @@
         '</div>' +
         '<button class="tb-btn" data-act="clear" style="width:100%"><span class="mi">delete_sweep</span><span>' +
         (isApp ? 'Clear screen' : 'Clear page') + '</span></button>' +
-        '</div>';
+        '</div>' +
+        this.navSection();
     },
 
     componentPanel: function (item) {
@@ -136,6 +141,9 @@
         '<div class="sect-title">Content</div>' + fields +
         '</div>' +
 
+        /* Phase A — typography for this block */
+        S.Typography.section(item) +
+
         /* Style */
         this.styleSection(item) +
 
@@ -144,6 +152,9 @@
 
         /* Advanced */
         this.advancedSection(item, lockLabel, hideLabel) +
+
+        /* Phase B — drawer / menu content */
+        this.navSection() +
 
         '<p class="inspect-note">Click any text in the preview to edit it directly. Enter saves · Esc cancels.</p>';
     },
@@ -227,6 +238,181 @@
         '<small class="f-hint">Unique identifier used by save, undo and export.</small>' +
         '</div>' +
         '</div>';
+    },
+
+    /* Phase B — edit the drawer header and the items inside the drawer and
+       three-dot menu. Icons reuse the existing icon picker. */
+    navSection: function () {
+      var d = S.State.data;
+      var ui = d.ui || S.defaultUI();
+      var header = ui.drawer.header || {};
+      var self = this;
+      this._navOpen = this._navOpen || false;
+
+      var row = function (list, it) {
+        return '<div class="nav-row" data-nav-row="' + list + '" data-nav-id="' + esc(it.id) + '">' +
+          '<span class="nav-grip mi" aria-hidden="true">drag_indicator</span>' +
+          '<button type="button" class="nav-ico" data-nav-icon="' + esc(it.id) + '" data-nav-list="' + list +
+          '" title="Change icon" aria-label="Change icon for ' + esc(it.label) + '">' + S.icon(it.icon) + '</button>' +
+          '<input class="f-input nav-name" type="text" value="' + esc(it.label) + '" data-nav-item="' + esc(it.id) +
+          '" data-nav-list="' + list + '" data-nav-field="label" placeholder="Item name" aria-label="Item name">' +
+          '<button type="button" class="mini" data-nav-move="-1" data-nav-id="' + esc(it.id) + '" data-nav-list="' + list +
+          '" title="Move up" aria-label="Move item up"><span class="mi">expand_less</span></button>' +
+          '<button type="button" class="mini" data-nav-move="1" data-nav-id="' + esc(it.id) + '" data-nav-list="' + list +
+          '" title="Move down" aria-label="Move item down"><span class="mi">expand_more</span></button>' +
+          '<button type="button" class="mini danger" data-nav-del="' + esc(it.id) + '" data-nav-list="' + list +
+          '" title="Delete item" aria-label="Delete item"><span class="mi">close</span></button>' +
+          '</div>';
+      };
+
+      var rows = function (list) {
+        var items = ((ui[list] || {}).items) || [];
+        return items.length ? items.map(function (it) { return row(list, it); }).join('') :
+          '<p class="nav-empty">No items yet. Add one below.</p>';
+      };
+
+      var count = ((ui.drawer.items || []).length) + ((ui.menu.items || []).length);
+
+      return '<details class="sect nav-sect"' + (this._navOpen ? ' open' : '') + '>' +
+        '<summary class="sect-title">Navigation <span class="count">' + count + '</span></summary>' +
+
+        '<div class="nav-head-edit">' +
+        '<div class="f-label"><span>Drawer header</span></div>' +
+        '<input class="f-input" type="text" value="' + esc(header.title || '') + '" data-nav-header="title" placeholder="Title" aria-label="Drawer title">' +
+        '<div class="f-pair">' +
+        '<input class="f-input" type="text" value="' + esc(header.subtitle || '') + '" data-nav-header="subtitle" placeholder="Subtitle" aria-label="Drawer subtitle">' +
+        '<input class="f-input" type="text" value="' + esc(header.avatar || '') + '" data-nav-header="avatar" placeholder="Avatar" aria-label="Drawer avatar initials" maxlength="3">' +
+        '</div>' +
+        '<small class="f-hint">Shown at the top of the slide-in drawer.</small>' +
+        '</div>' +
+
+        '<div class="nav-group">' +
+        '<div class="nav-group-title"><span>Drawer items</span>' +
+        '<button type="button" class="mini wide" data-nav-add="drawer"><span class="mi">add</span>Add</button></div>' +
+        rows('drawer') +
+        '</div>' +
+
+        '<div class="nav-group">' +
+        '<div class="nav-group-title"><span>Three-dot menu</span>' +
+        '<button type="button" class="mini wide" data-nav-add="menu"><span class="mi">add</span>Add</button></div>' +
+        rows('menu') +
+        '</div>' +
+
+        '<small class="f-hint">Click an icon to swap it. Changes save automatically and undo with Ctrl+Z.</small>' +
+        '</details>';
+    },
+
+    navEntry: function (list) {
+      var d = S.State.data;
+      d.ui = d.ui || S.defaultUI();
+      if (!d.ui[list]) d.ui[list] = { items: [] };
+      if (!Array.isArray(d.ui[list].items)) d.ui[list].items = [];
+      if (list === 'drawer' && !d.ui.drawer.header) d.ui.drawer.header = S.defaultUI().drawer.header;
+      return d.ui[list];
+    },
+
+    navItem: function (list, id) {
+      var entry = this.navEntry(list);
+      return entry.items.filter(function (it) { return it.id === id; })[0] || null;
+    },
+
+    navAdd: function (list) {
+      var entry = this.navEntry(list);
+      entry.items.push({
+        id: U.uid(),
+        label: list === 'drawer' ? 'New page' : 'New action',
+        icon: list === 'drawer' ? 'msr:pages' : 'msr:bolt',
+        active: false
+      });
+      S.State.commit('ui:add:' + list);
+      this.afterNavChange();
+    },
+
+    navRemove: function (list, id) {
+      var entry = this.navEntry(list);
+      entry.items = entry.items.filter(function (it) { return it.id !== id; });
+      S.State.commit('ui:del:' + list);
+      this.afterNavChange();
+    },
+
+    navMove: function (list, id, dir) {
+      var entry = this.navEntry(list);
+      var idx = entry.items.map(function (it) { return it.id; }).indexOf(id);
+      var to = idx + dir;
+      if (idx < 0 || to < 0 || to >= entry.items.length) {
+        U.toast(dir < 0 ? 'Already at the top' : 'Already at the bottom');
+        return;
+      }
+      var item = entry.items.splice(idx, 1)[0];
+      entry.items.splice(to, 0, item);
+      S.State.commit('ui:move:' + list);
+      this.afterNavChange();
+    },
+
+    afterNavChange: function () {
+      S.Render.drawScreen();
+      this.render();
+    },
+
+    /* Apply a typography field to the selected block. */
+    setTypo: function (key, raw, source) {
+      var item = this.selected();
+      if (!item) return;
+      if (this.guardLocked(item)) return;
+
+      item.typography = item.typography || {};
+      var t = item.typography;
+      var value = raw;
+
+      if (key === 'size' || key === 'lineHeight' || key === 'letterSpacing' || key === 'weight') {
+        var n = Number(raw);
+        if (raw === '' || raw == null || !isFinite(n)) {
+          delete t[key];
+        } else if (key === 'size') {
+          if (n > 0) t.size = Math.round(n * 10) / 10; else delete t.size;
+        } else if (key === 'lineHeight') {
+          if (n > 0) t.lineHeight = Math.round(n * 100) / 100; else delete t.lineHeight;
+        } else if (key === 'letterSpacing') {
+          if (n === 0) delete t.letterSpacing; else t.letterSpacing = Math.round(n * 100) / 100;
+        } else {
+          if (n >= 100) t.weight = Math.round(n); else delete t.weight;
+        }
+      } else {
+        value = String(raw == null ? '' : raw).trim();
+        if (value) t[key] = value; else delete t[key];
+      }
+
+      if (key === 'color') {
+        var box = document.getElementById('tab-inspect');
+        if (box) {
+          box.querySelectorAll('[data-typo="color"]').forEach(function (other) {
+            if (other !== source) other.value = value;
+          });
+        }
+      }
+
+      S.Render.drawScreen();
+      S.State.commit('typo:' + item.id + ':' + key);
+    },
+
+    setTypoAlign: function (align) {
+      var item = this.selected();
+      if (!item) return;
+      if (this.guardLocked(item)) return;
+
+      item.typography = item.typography || {};
+      if (item.typography.align === align) delete item.typography.align;
+      else item.typography.align = align;
+
+      var box = document.getElementById('tab-inspect');
+      if (box) box.querySelectorAll('[data-typo-align]').forEach(function (btn) {
+        var on = btn.getAttribute('data-typo-align') === item.typography.align;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+
+      S.Render.drawScreen();
+      S.State.commit('typo:' + item.id + ':align');
     },
 
     field: function (f, item) {
@@ -315,12 +501,51 @@
     bind: function (box) {
       var self = this;
 
+      /* `toggle` does not bubble, so listen in the capture phase. */
+      box.addEventListener('toggle', function (e) {
+        if (e.target.classList && e.target.classList.contains('nav-sect')) {
+          self._navOpen = e.target.open;
+        }
+      }, true);
+
       box.addEventListener('input', function (e) {
         var el = e.target;
 
         if (self.selected() && self.selected().locked &&
-            (el.hasAttribute('data-key') || el.hasAttribute('data-style') || el.hasAttribute('data-style-color'))) {
+            (el.hasAttribute('data-key') || el.hasAttribute('data-style') || el.hasAttribute('data-style-color') || el.hasAttribute('data-typo'))) {
           self.guardLocked(self.selected());
+          return;
+        }
+
+        /* Drawer header text */
+        var navHeader = el.getAttribute('data-nav-header');
+        if (navHeader) {
+          var navData = S.State.data;
+          navData.ui = navData.ui || S.defaultUI();
+          navData.ui.drawer = navData.ui.drawer || S.defaultUI().drawer;
+          navData.ui.drawer.header = navData.ui.drawer.header || S.defaultUI().drawer.header;
+          navData.ui.drawer.header[navHeader] = el.value;
+          S.Render.drawScreen();
+          S.State.commit('ui:header:' + navHeader);
+          return;
+        }
+
+        /* Drawer / menu item name */
+        var navId = el.getAttribute('data-nav-item');
+        if (navId) {
+          var navList = el.getAttribute('data-nav-list');
+          var navRow = self.navItem(navList, navId);
+          if (!navRow) return;
+          navRow[el.getAttribute('data-nav-field') || 'label'] = el.value;
+          S.Render.drawScreen();
+          S.State.commit('ui:item:' + navId + ':label');
+          return;
+        }
+
+        /* Per-block typography */
+        var typoKey = el.getAttribute('data-typo');
+        if (typoKey) {
+          self.setTypo(typoKey, el.value, el);
           return;
         }
 
@@ -388,8 +613,14 @@
         var el = e.target;
 
         if (self.selected() && self.selected().locked &&
-            (el.hasAttribute('data-key') || el.hasAttribute('data-style-select'))) {
+            (el.hasAttribute('data-key') || el.hasAttribute('data-style-select') || el.hasAttribute('data-typo'))) {
           self.guardLocked(self.selected());
+          return;
+        }
+
+        var typoSelect = el.getAttribute('data-typo');
+        if (typoSelect) {
+          self.setTypo(typoSelect, el.value, el);
           return;
         }
 
@@ -417,6 +648,39 @@
       box.addEventListener('click', function (e) {
         var btn = e.target.closest('button');
         if (!btn) return;
+
+        /* Typography alignment / clear */
+        if (btn.hasAttribute('data-typo-align')) {
+          self.setTypoAlign(btn.getAttribute('data-typo-align'));
+          return;
+        }
+        if (btn.hasAttribute('data-typo-clear')) {
+          self.setTypo(btn.getAttribute('data-typo-clear'), '', null);
+          return;
+        }
+
+        /* Navigation editor: pick an icon, add, delete or reorder items */
+        var navIcon = btn.getAttribute('data-nav-icon');
+        if (navIcon) {
+          S.iconTarget = { ui: true, list: btn.getAttribute('data-nav-list'), itemId: navIcon };
+          S.App.showTab('icons');
+          S.IconsPanel.sync();
+          return;
+        }
+        var navDel = btn.getAttribute('data-nav-del');
+        if (navDel) {
+          self.navRemove(btn.getAttribute('data-nav-list'), navDel);
+          return;
+        }
+        var navMove = btn.getAttribute('data-nav-move');
+        if (navMove) {
+          self.navMove(btn.getAttribute('data-nav-list'), btn.getAttribute('data-nav-id'), Number(navMove));
+          return;
+        }
+        if (btn.hasAttribute('data-nav-add')) {
+          self.navAdd(btn.getAttribute('data-nav-add'));
+          return;
+        }
 
         if (btn.hasAttribute('data-open-devices')) {
           S.App.toggleDeviceMenu(true);
