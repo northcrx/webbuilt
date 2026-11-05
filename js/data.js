@@ -485,14 +485,24 @@
       icon: 'apps',
       defaults: {
         items: 'explore:Discover\nmap:Map\nbookmark:Saved\nperson:Profile',
-        active: 0
+        active: 0,
+        style: 'material'
       },
       fields: [
-        { key: 'items', label: 'Items — one per line: icon:Label', type: 'textarea' },
+        { key: 'style', label: 'Design', type: 'select', options: [
+          ['material', 'Material bar'],
+          ['floating', 'Floating capsule'],
+          ['compact', 'Compact icons'],
+          ['minimal', 'Minimal underline'],
+          ['glass', 'Frosted glass']
+        ], hint: 'Picked here, applied to the bottom navigation on every screen.' },
+        { key: 'items', label: 'Items - one per line: icon:Label', type: 'textarea' },
         { key: 'active', label: 'Active item', type: 'number', min: 0, max: 8 }
       ],
       html: function (p) {
         var active = Number(p.active) || 0;
+        var variants = { material: 1, floating: 1, compact: 1, minimal: 1, glass: 1 };
+        var style = variants[p.style] ? p.style : 'material';
         var rows = String(p.items || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (line, i) {
           var idx = line.indexOf(':');
           var ico = idx > -1 ? line.slice(0, idx).trim() : 'circle';
@@ -503,7 +513,7 @@
             (on ? ' aria-current="page"' : '') + '>' +
             '<span class="nav-icon">' + S.icon(ico) + '</span><span>' + esc(label) + '</span></button>';
         }).join('');
-        return '<div class="nav-bar">' + rows + '</div>';
+        return '<div class="nav-bar nav-' + style + '">' + rows + '</div>';
       }
     },
 

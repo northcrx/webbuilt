@@ -618,7 +618,11 @@
       var pageScreen = list;
       if (index !== activeIndex) {
         pageScreen = [];
-        var copy = S.makeBlock('bottomnav', { items: nav.props.items, active: index });
+        var copy = S.makeBlock('bottomnav', {
+          items: nav.props.items,
+          active: index,
+          style: nav.props.style || 'material'
+        });
         if (copy) pageScreen.push(copy);
       }
       return {

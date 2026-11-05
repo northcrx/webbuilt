@@ -2744,6 +2744,71 @@
 .screen-dock .nav-bar { border-top: 1px solid var(--md-outline-variant); }
 .screen-dock .cmp-miniplayer + .cmp-bottomnav .nav-bar { border-top-color: transparent; }
 
+/* ---------- bottom-navigation design styles ---------- */
+/* Floating capsule: detached from the edges with a soft shadow. */
+.nav-bar.nav-floating {
+  margin: 6px 12px 10px;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--md-surface-container-high);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .18), 0 2px 6px rgba(0, 0, 0, .08);
+}
+.nav-bar.nav-floating .nav-item.active .nav-icon {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+}
+.screen-dock .nav-bar.nav-floating { border-top: 0; }
+
+/* Compact: icon-led bar with a dot under the active tab. */
+.nav-bar.nav-compact { padding: 7px 6px 6px; }
+.nav-bar.nav-compact .nav-item { position: relative; padding-bottom: 9px; }
+.nav-bar.nav-compact .nav-item > span:last-child { display: none; }
+.nav-bar.nav-compact .nav-item .nav-icon { width: 48px; height: 34px; }
+.nav-bar.nav-compact .nav-item.active::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--md-primary);
+}
+
+/* Minimal: flat and borderless with a short underline on the active tab. */
+.nav-bar.nav-minimal {
+  padding: 8px 6px 10px;
+  background: transparent;
+  border-top: 1px solid color-mix(in srgb, var(--md-outline-variant) 55%, transparent);
+}
+.nav-bar.nav-minimal .nav-item { position: relative; }
+.nav-bar.nav-minimal .nav-item .nav-icon { width: auto; height: 30px; background: transparent; }
+.nav-bar.nav-minimal .nav-item.active { color: var(--md-primary); }
+.nav-bar.nav-minimal .nav-item.active .nav-icon { background: transparent; color: var(--md-primary); }
+.nav-bar.nav-minimal .nav-item.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 30%;
+  right: 30%;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* Frosted glass: translucent bar that blurs the content behind it. */
+.nav-bar.nav-glass {
+  background: color-mix(in srgb, var(--md-surface-container) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--md-outline-variant) 55%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+.nav-bar.nav-glass .nav-item.active .nav-icon {
+  background: color-mix(in srgb, var(--md-primary) 22%, transparent);
+  color: var(--md-primary);
+}
+.screen-dock .nav-bar.nav-glass { border-top-color: transparent; }
+
 /* Exported screens live in one scroll stage; only the active page shows. */
 .app-screen.export-stage { display: flex; overflow: hidden; padding-bottom: 0; }
 .export-stage > .screen-page { display: none; width: 100%; flex: 1 1 auto; min-height: 0; flex-direction: column; }

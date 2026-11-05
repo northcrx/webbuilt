@@ -676,6 +676,9 @@
             S.State.syncPagesFromNav();
             S.State.syncNavFromPages();
           }
+          if (item.type === 'bottomnav' && key === 'style') {
+            S.State.syncNavStyle(value);
+          }
 
           box.querySelectorAll('[data-key="' + key + '"]').forEach(function (other) {
             if (other !== el) other.value = value;
@@ -685,7 +688,10 @@
           });
 
           S.Render.drawScreen();
-          S.State.commit('prop:' + item.id + ':' + key);
+          /* Each design pick is its own undo step, even when clicked quickly. */
+          S.State.commit(item.type === 'bottomnav' && key === 'style'
+            ? null
+            : 'prop:' + item.id + ':' + key);
           return;
         }
 

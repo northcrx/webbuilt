@@ -99,7 +99,11 @@
       var index = d.pages.length;
       var page = { id: S.util.uid(), name: 'Screen ' + (index + 1), icon: 'msr:apps', screen: [] };
       if (source) {
-        var nav = S.makeBlock('bottomnav', { items: source.props.items, active: index });
+        var nav = S.makeBlock('bottomnav', {
+          items: source.props.items,
+          active: index,
+          style: source.props.style || 'material'
+        });
         if (nav) page.screen.push(nav);
       }
       d.pages.push(page);
@@ -178,6 +182,20 @@
       page.icon = icon;
       this.syncNavFromPages();
       this.commit('page:icon:' + id);
+    },
+
+    /* The tab-bar design is one app-wide choice, so mirror a picked style
+       onto every screen's navigation instead of only the selected copy. */
+    syncNavStyle: function (style) {
+      var d = this.data;
+      if (!d || d.target !== 'app') return;
+      this.syncActivePage();
+      var value = style || 'material';
+      (d.pages || []).forEach(function (page) {
+        (page.screen || []).forEach(function (block) {
+          if (block.type === 'bottomnav') block.props.style = value;
+        });
+      });
     },
 
     /* Pages own the tab names and icons. Whenever the screen list changes,
@@ -461,12 +479,17 @@
         if (!template && block.type === 'bottomnav') template = block;
       });
     });
+    var navStyle = (template && template.props.style) || 'material';
 
     d.pages.forEach(function (page, index) {
       page.screen = page.screen || [];
       var navs = page.screen.filter(function (block) { return block.type === 'bottomnav'; });
       if (!navs.length && template && S.makeBlock) {
-        var clone = S.makeBlock('bottomnav', { items: items, active: index });
+        var clone = S.makeBlock('bottomnav', {
+          items: items,
+          active: index,
+          style: navStyle
+        });
         if (clone) {
           page.screen.push(clone);
           navs = [clone];
@@ -475,6 +498,7 @@
       navs.forEach(function (block) {
         block.props.items = items;
         block.props.active = index;
+        block.props.style = navStyle;
       });
     });
   }
