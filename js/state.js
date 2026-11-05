@@ -411,6 +411,16 @@
       }).filter(Boolean);
     }
 
+    function oneOf(value, allowed, fallback) {
+      return allowed.indexOf(value) > -1 ? value : fallback;
+    }
+
+    function clampInt(value, min, max, fallback) {
+      var n = Number(value);
+      if (value === '' || value == null || !isFinite(n)) return fallback;
+      return Math.max(min, Math.min(max, Math.round(n)));
+    }
+
     var drawer = raw.drawer && typeof raw.drawer === 'object' ? raw.drawer : {};
     var menu = raw.menu && typeof raw.menu === 'object' ? raw.menu : {};
     var search = raw.search && typeof raw.search === 'object' ? raw.search : {};
@@ -418,14 +428,29 @@
       drawer: {
         showHeader: drawer.showHeader !== false,
         header: normHeader(drawer.header),
-        items: normItems(drawer.items, base.drawer.items)
+        items: normItems(drawer.items, base.drawer.items),
+        width: clampInt(drawer.width, 64, 96, base.drawer.width),
+        appearance: oneOf(drawer.appearance, ['surface', 'tinted', 'glass'], base.drawer.appearance),
+        itemShape: oneOf(drawer.itemShape, ['pill', 'rounded', 'square'], base.drawer.itemShape),
+        density: oneOf(drawer.density, ['compact', 'cozy', 'roomy'], base.drawer.density),
+        showIcons: drawer.showIcons !== false,
+        closeStyle: oneOf(drawer.closeStyle, ['icon', 'text', 'none'], base.drawer.closeStyle),
+        closeShape: oneOf(drawer.closeShape, ['circle', 'square'], base.drawer.closeShape),
+        closeLabel: drawer.closeLabel == null ? base.drawer.closeLabel : String(drawer.closeLabel)
       },
       menu: { items: normItems(menu.items, base.menu.items) },
       search: {
         mode: search.mode === 'page' ? 'page' : 'overlay',
         placeholder: search.placeholder == null ? base.search.placeholder : String(search.placeholder),
         chips: search.chips == null ? base.search.chips : String(search.chips),
-        hint: search.hint == null ? base.search.hint : String(search.hint)
+        hint: search.hint == null ? base.search.hint : String(search.hint),
+        reaction: oneOf(search.reaction, ['slide', 'fade', 'zoom'], base.search.reaction),
+        resultStyle: oneOf(search.resultStyle, ['list', 'compact', 'cards'], base.search.resultStyle),
+        fieldRadius: clampInt(search.fieldRadius, 0, 28, base.search.fieldRadius),
+        showRecents: search.showRecents !== false,
+        showQuickLinks: search.showQuickLinks !== false,
+        showGuide: search.showGuide !== false,
+        guide: search.guide == null ? base.search.guide : String(search.guide)
       }
     };
   }

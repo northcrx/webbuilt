@@ -596,7 +596,15 @@
           { id: 'drawer-explore', label: 'Explore', icon: 'msr:explore', active: false },
           { id: 'drawer-saved', label: 'Saved', icon: 'msr:bookmark', active: false },
           { id: 'drawer-settings', label: 'Settings', icon: 'msr:settings', active: false }
-        ]
+        ],
+        width: 84,
+        appearance: 'surface',
+        itemShape: 'pill',
+        density: 'cozy',
+        showIcons: true,
+        closeStyle: 'icon',
+        closeShape: 'circle',
+        closeLabel: 'Close'
       },
       menu: {
         items: [
@@ -609,7 +617,14 @@
         mode: 'overlay',
         placeholder: 'Search pages, blocks and actions…',
         chips: 'All, Music, Saved, Files',
-        hint: 'Try “Home”, “Settings” or “Hero”.'
+        hint: 'Try “Home”, “Settings” or “Hero”.',
+        reaction: 'slide',
+        resultStyle: 'list',
+        fieldRadius: 21,
+        showRecents: true,
+        showQuickLinks: true,
+        showGuide: true,
+        guide: 'Type to search screens, blocks and menu actions. Pick a filter chip to narrow things down.'
       }
     };
   };

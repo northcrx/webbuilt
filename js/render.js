@@ -200,14 +200,39 @@
     overlayMarkup: function () {
       var d = S.State.data;
       var ui = (d.ui && d.ui.drawer && d.ui.menu) ? d.ui : S.defaultUI();
-      var header = ui.drawer.header || {};
+      var drawer = ui.drawer || {};
+      var header = drawer.header || {};
       var search = ui.search || {};
-      var showHeader = ui.drawer.showHeader !== false;
+      var showHeader = drawer.showHeader !== false;
 
-      var drawerItems = (ui.drawer.items || []).map(function (it) {
+      var shapeRadius = { pill: '99px', rounded: '14px', square: '4px' }[drawer.itemShape] || '99px';
+      var densityPad = {
+        compact: '8px 12px',
+        cozy: '12px 14px',
+        roomy: '15px 16px'
+      }[drawer.density] || '12px 14px';
+      var densityGap = { compact: '0px', cozy: '2px', roomy: '6px' }[drawer.density] || '2px';
+      var drawerStyle = '--ui-drawer-w:' + (Number(drawer.width) || 84) + '%;' +
+        '--ui-item-radius:' + shapeRadius + ';' +
+        '--ui-item-pad:' + densityPad + ';' +
+        '--ui-nav-gap:' + densityGap;
+
+      var closeMarkup = '';
+      if (drawer.closeStyle !== 'none') {
+        var isText = drawer.closeStyle === 'text';
+        closeMarkup = '<button type="button" class="ui-icon-btn ui-drawer-close' +
+          (isText ? ' has-label' : '') + '" data-ui-close="1" aria-label="Close navigation">' +
+          '<span class="mi">close</span>' +
+          (isText ? '<span class="ui-close-label">' + esc(drawer.closeLabel || 'Close') + '</span>' : '') +
+          '</button>';
+      }
+
+      var drawerItems = (drawer.items || []).map(function (it) {
         return '<button type="button" class="ui-drawer-item' + (it.active ? ' active' : '') + '" ' +
-          'data-ui-item="drawer" data-ui-id="' + esc(it.id) + '" data-ui-label="' + esc(it.label) + '">' +
-          '<span class="ui-ico">' + S.icon(it.icon) + '</span><span class="ui-item-text">' + esc(it.label) + '</span>' +
+          'data-ui-item="drawer" data-ui-id="' + esc(it.id) + '" data-ui-label="' + esc(it.label) +
+          '" aria-label="' + esc(it.label) + '">' +
+          (drawer.showIcons !== false ? '<span class="ui-ico">' + S.icon(it.icon) + '</span>' : '') +
+          '<span class="ui-item-text">' + esc(it.label) + '</span>' +
           '</button>';
       }).join('');
 
@@ -222,32 +247,55 @@
         return c.trim();
       }).filter(Boolean);
       var chipsMarkup = chips.length
-        ? '<div class="ui-search-chips">' + chips.map(function (label) {
-          return '<button type="button" class="ui-chip" data-ui-chip="' + esc(label) + '">' + esc(label) + '</button>';
-        }).join('') + '</div>'
+        ? '<div class="ui-search-chips" role="group" aria-label="Search filters">' +
+          '<span class="ui-chips-label">Filters</span>' +
+          chips.map(function (label) {
+            return '<button type="button" class="ui-chip" data-ui-chip="' + esc(label) + '">' + esc(label) + '</button>';
+          }).join('') + '</div>'
         : '';
 
+      var guide = String(search.guide || '').trim();
+      var guideMarkup = (search.showGuide !== false && guide)
+        ? '<div class="ui-search-guide"><span class="mi">tips_and_updates</span><span>' + esc(guide) + '</span></div>'
+        : '';
+
+      var radius = Number(search.fieldRadius);
+      if (!isFinite(radius) || radius < 0) radius = 21;
+
       return '<div class="ui-scrim" data-ui-close="1" aria-hidden="true"></div>' +
-        '<aside class="ui-drawer' + (showHeader ? '' : ' no-head') + '" role="dialog" aria-modal="true" aria-label="Navigation drawer" aria-hidden="true">' +
+        '<aside class="ui-drawer' + (showHeader ? '' : ' no-head') +
+        '" data-appearance="' + esc(drawer.appearance || 'surface') +
+        '" data-close-shape="' + esc(drawer.closeShape || 'circle') +
+        '" style="' + esc(drawerStyle) + '" role="dialog" aria-modal="true" aria-label="Navigation drawer" aria-hidden="true">' +
+        (closeMarkup && !showHeader ? '<div class="ui-drawer-top">' + closeMarkup + '</div>' : '') +
         (showHeader ? '<div class="ui-drawer-head">' +
           '<span class="ui-avatar">' + esc(header.avatar || 'A') + '</span>' +
           '<div class="ui-drawer-id"><strong>' + esc(header.title || 'Navigation') + '</strong>' +
           '<small>' + esc(header.subtitle || '') + '</small></div>' +
-          '<button type="button" class="ui-icon-btn" data-ui-close="1" aria-label="Close navigation"><span class="mi">close</span></button>' +
+          closeMarkup +
           '</div>' : '') +
         '<nav class="ui-drawer-nav">' + (drawerItems || '<p class="ui-empty">No drawer items yet.</p>') + '</nav>' +
         '</aside>' +
         '<div class="ui-menu" role="menu" aria-label="More actions" aria-hidden="true">' +
         (menuItems || '<p class="ui-empty">No menu items yet.</p>') +
         '</div>' +
-        '<div class="ui-search" data-search-hint="' + esc(search.hint || '') + '" role="dialog" aria-modal="true" aria-label="Search" aria-hidden="true">' +
+        '<div class="ui-search" data-search-hint="' + esc(search.hint || '') + '" ' +
+        'data-reaction="' + esc(search.reaction || 'slide') + '" ' +
+        'data-results="' + esc(search.resultStyle || 'list') + '" ' +
+        'data-recents="' + (search.showRecents !== false ? '1' : '0') + '" ' +
+        'data-quick="' + (search.showQuickLinks !== false ? '1' : '0') + '" ' +
+        'data-guide="' + (search.showGuide !== false ? '1' : '0') + '" ' +
+        'data-guide-text="' + esc(guide) + '" ' +
+        'style="--ui-search-radius:' + Math.round(radius) + 'px" ' +
+        'role="dialog" aria-modal="true" aria-label="Search" aria-hidden="true">' +
         '<div class="ui-search-bar">' +
         '<button type="button" class="ui-icon-btn" data-ui-close="1" aria-label="Close search"><span class="mi">arrow_back</span></button>' +
-        '<input type="search" class="ui-search-input" placeholder="' + esc(search.placeholder || 'Search pages and actions…') + '" aria-label="Search">' +
+        '<input type="search" class="ui-search-input" placeholder="' + esc(search.placeholder || 'Search pages and actions…') + '" aria-label="Search" autocomplete="off">' +
         '<button type="button" class="ui-icon-btn" data-ui-search-clear="1" aria-label="Clear search"><span class="mi">close</span></button>' +
         '</div>' +
+        guideMarkup +
         chipsMarkup +
-        '<div class="ui-search-body"><div class="ui-search-results"></div></div>' +
+        '<div class="ui-search-body"><div class="ui-search-results" aria-live="polite"></div></div>' +
         '</div>';
     },
 
@@ -318,7 +366,7 @@
     phoneInner: function (selecting) {
       var d = S.State.data;
       return '<div class="camera-hole"></div>' +
-        '<div class="phone-screen">' +
+        '<div class="phone-screen"' + (d.device.statusBar ? ' style="--ui-top:34px"' : '') + '>' +
         (d.device.statusBar ? this.statusBar() : '') +
         '<div class="app-screen screen-surface' + (selecting ? ' selecting' : '') + '">' +
         this.screenMarkup(selecting, d.selectedId, true) +

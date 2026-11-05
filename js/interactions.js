@@ -166,16 +166,28 @@
     if (!body) return;
     var q = String((input && input.value) || '').trim();
     var ui = S.State.data.ui || S.defaultUI();
+    var showRecents = box.getAttribute('data-recents') !== '0';
+    var showQuick = box.getAttribute('data-quick') !== '0';
+    var hint = esc(ui.search && ui.search.hint || 'Search screens, blocks and menu actions.');
+    var guide = box.querySelector('.ui-search-guide');
+    if (guide) guide.hidden = !!q;
 
     if (!q) {
-      var recent = readRecent();
-      var quick = (ui.drawer.items || []).slice(0, 4);
-      var html = '<div class="ui-search-label">Recent searches</div>' +
-        (recent.length ? '<div class="ui-recent">' + recent.map(pill).join('') + '</div>' :
-          '<p class="ui-search-empty">' + esc(ui.search && ui.search.hint || 'Search screens, blocks and menu actions.') + '</p>');
+      var recent = showRecents ? readRecent() : [];
+      var quick = showQuick ? (ui.drawer.items || []).slice(0, 4) : [];
+      var html = '';
+
+      if (showRecents) {
+        html += '<div class="ui-search-label">Recent searches</div>' +
+          (recent.length ? '<div class="ui-recent">' + recent.map(pill).join('') + '</div>' :
+            '<p class="ui-search-empty">' + hint + '</p>');
+      }
       if (quick.length) {
         html += '<div class="ui-search-label">Quick links</div><div class="ui-recent">' +
           quick.map(function (it) { return pill(it.label); }).join('') + '</div>';
+      }
+      if (!html) {
+        html = '<p class="ui-search-empty">' + hint + '</p>';
       }
       body.innerHTML = html;
       return;

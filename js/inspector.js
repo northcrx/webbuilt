@@ -262,13 +262,17 @@
       var rows = d.pages.map(function (page, index) {
         var active = page.id === d.activePageId;
         return '<div class="page-row' + (active ? ' is-active' : '') + '" data-page-row="' + esc(page.id) + '" data-page-index="' + index + '">' +
+          '<div class="nav-main">' +
           '<span class="nav-grip mi" draggable="true" data-page-grip="' + esc(page.id) + '" title="Drag to reorder" aria-hidden="true">drag_indicator</span>' +
           '<button type="button" class="nav-ico" data-page-icon="' + esc(page.id) + '" title="Change tab icon" aria-label="Change icon for ' + esc(page.name) + '">' + S.icon(page.icon || 'msr:apps') + '</button>' +
           '<input class="f-input nav-name" type="text" value="' + esc(page.name) + '" data-page-name="' + esc(page.id) + '" placeholder="Screen name" aria-label="Screen name">' +
           '<button type="button" class="mini' + (active ? ' on' : '') + '" data-page-open="' + esc(page.id) + '" title="' + (active ? 'Editing this screen' : 'Edit this screen') + '" aria-label="Open ' + esc(page.name) + '"><span class="mi">' + (active ? 'check' : 'open_in_new') + '</span></button>' +
+          '</div>' +
+          '<div class="nav-actions">' +
           '<button type="button" class="mini" data-page-move="-1" data-page-id="' + esc(page.id) + '" title="Move left" aria-label="Move screen left"><span class="mi">chevron_left</span></button>' +
           '<button type="button" class="mini" data-page-move="1" data-page-id="' + esc(page.id) + '" title="Move right" aria-label="Move screen right"><span class="mi">chevron_right</span></button>' +
           (d.pages.length > 1 ? '<button type="button" class="mini danger" data-page-del="' + esc(page.id) + '" title="Delete screen" aria-label="Delete screen"><span class="mi">close</span></button>' : '') +
+          '</div>' +
           '</div>';
       }).join('');
 
@@ -283,12 +287,33 @@
         '</details>';
     },
 
-    /* Search overlay settings: mode, placeholder, filter chips and hint. */
+    /* Search overlay settings: opening mode, motion, result layout, field
+       shape, empty-state sections and the guidance strip. */
     searchSection: function () {
       var d = S.State.data;
       var ui = d.ui || S.defaultUI();
       var search = ui.search || S.defaultUI().search;
+      var self = this;
       this._searchOpen = !!this._searchOpen;
+
+      var toggle = function (key, on, label) {
+        return '<button type="button" class="f-toggle' + (on ? ' on' : '') + '" data-search-toggle="' + key +
+          '" aria-pressed="' + (on ? 'true' : 'false') + '"><span class="tgl"></span><span>' + esc(label) + '</span></button>';
+      };
+
+      var radius = Number(search.fieldRadius);
+      if (!isFinite(radius)) radius = 21;
+
+      var select = function (key, label, options, hint) {
+        return '<div class="f-row"><div class="f-label">' + esc(label) + '</div>' +
+          '<select class="f-select" data-search-field="' + key + '" aria-label="' + esc(label) + '">' +
+          options.map(function (opt) {
+            return '<option value="' + esc(opt[0]) + '"' +
+              (String(search[key]) === String(opt[0]) ? ' selected' : '') + '>' + esc(opt[1]) + '</option>';
+          }).join('') + '</select>' +
+          (hint ? '<small class="f-hint">' + esc(hint) + '</small>' : '') + '</div>';
+      };
+
       return '<details class="sect search-sect"' + (this._searchOpen ? ' open' : '') + '>' +
         '<summary class="sect-title">Search experience</summary>' +
         '<div class="f-row"><div class="f-label">Opens as</div>' +
@@ -296,6 +321,22 @@
         '<option value="overlay"' + (search.mode !== 'page' ? ' selected' : '') + '>Overlay sheet</option>' +
         '<option value="page"' + (search.mode === 'page' ? ' selected' : '') + '>Dedicated screen</option>' +
         '</select><small class="f-hint">Dedicated mode jumps to the screen that contains a Search page block.</small></div>' +
+        select('reaction', 'Open animation', [
+          ['slide', 'Slide up'], ['fade', 'Fade in'], ['zoom', 'Zoom in']
+        ], 'How the search sheet reacts when it opens.') +
+        select('resultStyle', 'Result layout', [
+          ['list', 'List rows'], ['compact', 'Compact rows'], ['cards', 'Card grid']
+        ], 'Results keep the same data — only the presentation changes.') +
+        '<div class="f-row"><div class="f-label"><span>Field shape</span>' +
+        '<span class="val" data-search-val="fieldRadius">' + Math.round(radius) + 'px</span></div>' +
+        '<input type="range" class="f-range" data-search-field="fieldRadius" min="0" max="28" step="1" value="' + Math.round(radius) + '" aria-label="Search field corner radius">' +
+        '<small class="f-hint">Corner radius of the search field: 0px is square, 21px is fully rounded.</small></div>' +
+        toggle('showRecents', search.showRecents !== false, 'Recent searches') +
+        toggle('showQuickLinks', search.showQuickLinks !== false, 'Quick links') +
+        toggle('showGuide', search.showGuide !== false, 'Guidance strip') +
+        '<div class="f-row"><div class="f-label">Guidance text</div>' +
+        '<input class="f-input" type="text" value="' + esc(search.guide || '') + '" data-search-field="guide" aria-label="Search guidance text">' +
+        '<small class="f-hint">Tip shown above the filters to explain what can be searched.</small></div>' +
         '<div class="f-row"><div class="f-label">Placeholder</div>' +
         '<input class="f-input" type="text" value="' + esc(search.placeholder || '') + '" data-search-field="placeholder" aria-label="Search placeholder">' +
         '<small class="f-hint">Shown inside the search field before anything is typed.</small></div>' +
@@ -304,7 +345,7 @@
         '<small class="f-hint">Quick filters displayed under the search bar.</small></div>' +
         '<div class="f-row"><div class="f-label">Helper text</div>' +
         '<input class="f-input" type="text" value="' + esc(search.hint || '') + '" data-search-field="hint" aria-label="Search helper text">' +
-        '<small class="f-hint">Empty-state tip shown before a query is entered.</small></div>' +
+        '<small class="f-hint">Empty-state tip shown when there are no recent searches.</small></div>' +
         '</details>';
     },
 
@@ -317,19 +358,25 @@
       var self = this;
       this._navOpen = this._navOpen || false;
 
+      /* Two-line rows: the name input owns the first line, reorder and delete
+         controls sit on their own line so they never cover the text. */
       var row = function (list, it) {
         return '<div class="nav-row" data-nav-row="' + list + '" data-nav-id="' + esc(it.id) + '">' +
+          '<div class="nav-main">' +
           '<span class="nav-grip mi" draggable="true" data-nav-grip="' + list + '" data-nav-id="' + esc(it.id) + '" title="Drag to reorder" aria-hidden="true">drag_indicator</span>' +
           '<button type="button" class="nav-ico" data-nav-icon="' + esc(it.id) + '" data-nav-list="' + list +
           '" title="Change icon" aria-label="Change icon for ' + esc(it.label) + '">' + S.icon(it.icon) + '</button>' +
           '<input class="f-input nav-name" type="text" value="' + esc(it.label) + '" data-nav-item="' + esc(it.id) +
           '" data-nav-list="' + list + '" data-nav-field="label" placeholder="Item name" aria-label="Item name">' +
+          '</div>' +
+          '<div class="nav-actions">' +
           '<button type="button" class="mini" data-nav-move="-1" data-nav-id="' + esc(it.id) + '" data-nav-list="' + list +
           '" title="Move up" aria-label="Move item up"><span class="mi">expand_less</span></button>' +
           '<button type="button" class="mini" data-nav-move="1" data-nav-id="' + esc(it.id) + '" data-nav-list="' + list +
           '" title="Move down" aria-label="Move item down"><span class="mi">expand_more</span></button>' +
           '<button type="button" class="mini danger" data-nav-del="' + esc(it.id) + '" data-nav-list="' + list +
           '" title="Delete item" aria-label="Delete item"><span class="mi">close</span></button>' +
+          '</div>' +
           '</div>';
       };
 
@@ -354,6 +401,50 @@
         '<input class="f-input" type="text" value="' + esc(header.avatar || '') + '" data-nav-header="avatar" placeholder="Avatar" aria-label="Drawer avatar initials" maxlength="3">' +
         '</div>' +
         '<small class="f-hint">Shown at the top of the slide-in drawer.</small>' +
+        '</div>' +
+
+        '<div class="nav-style-edit">' +
+        '<div class="f-label"><span>Drawer style</span></div>' +
+        '<div class="f-row"><div class="f-label"><span>Width</span>' +
+        '<span class="val" data-drawer-val="width">' + (Number(ui.drawer.width) || 84) + '%</span></div>' +
+        '<input type="range" class="f-range" data-drawer-field="width" min="64" max="96" step="1" value="' + (Number(ui.drawer.width) || 84) + '" aria-label="Drawer width">' +
+        '<small class="f-hint">How much of the screen the open drawer covers.</small></div>' +
+        '<div class="f-row"><div class="f-label">Surface</div>' +
+        '<select class="f-select" data-drawer-field="appearance" aria-label="Drawer surface">' +
+        '<option value="surface"' + (ui.drawer.appearance === 'surface' || !ui.drawer.appearance ? ' selected' : '') + '>Surface</option>' +
+        '<option value="tinted"' + (ui.drawer.appearance === 'tinted' ? ' selected' : '') + '>Tinted</option>' +
+        '<option value="glass"' + (ui.drawer.appearance === 'glass' ? ' selected' : '') + '>Frosted glass</option>' +
+        '</select><small class="f-hint">Background treatment behind the navigation items.</small></div>' +
+        '<div class="f-row"><div class="f-label">Item shape</div>' +
+        '<select class="f-select" data-drawer-field="itemShape" aria-label="Drawer item shape">' +
+        '<option value="pill"' + (ui.drawer.itemShape === 'pill' || !ui.drawer.itemShape ? ' selected' : '') + '>Pill</option>' +
+        '<option value="rounded"' + (ui.drawer.itemShape === 'rounded' ? ' selected' : '') + '>Rounded</option>' +
+        '<option value="square"' + (ui.drawer.itemShape === 'square' ? ' selected' : '') + '>Square</option>' +
+        '</select><small class="f-hint">Corner style of each drawer row.</small></div>' +
+        '<div class="f-row"><div class="f-label">Item spacing</div>' +
+        '<select class="f-select" data-drawer-field="density" aria-label="Drawer item spacing">' +
+        '<option value="compact"' + (ui.drawer.density === 'compact' ? ' selected' : '') + '>Compact</option>' +
+        '<option value="cozy"' + (ui.drawer.density === 'cozy' || !ui.drawer.density ? ' selected' : '') + '>Cozy</option>' +
+        '<option value="roomy"' + (ui.drawer.density === 'roomy' ? ' selected' : '') + '>Roomy</option>' +
+        '</select><small class="f-hint">Padding and gap between navigation items.</small></div>' +
+        '<button type="button" class="f-toggle' + (ui.drawer.showIcons !== false ? ' on' : '') + '" data-drawer-toggle="showIcons" aria-pressed="' + (ui.drawer.showIcons !== false) + '">' +
+        '<span class="tgl"></span><span>' + (ui.drawer.showIcons !== false ? 'Item icons shown' : 'Item icons hidden') + '</span></button>' +
+        '<div class="f-pair">' +
+        '<div class="f-row"><div class="f-label">Close button</div>' +
+        '<select class="f-select" data-drawer-field="closeStyle" aria-label="Drawer close button style">' +
+        '<option value="icon"' + (ui.drawer.closeStyle === 'icon' || !ui.drawer.closeStyle ? ' selected' : '') + '>Icon</option>' +
+        '<option value="text"' + (ui.drawer.closeStyle === 'text' ? ' selected' : '') + '>Icon + label</option>' +
+        '<option value="none"' + (ui.drawer.closeStyle === 'none' ? ' selected' : '') + '>Hidden</option>' +
+        '</select><small class="f-hint">Close control in the drawer header.</small></div>' +
+        '<div class="f-row"><div class="f-label">Shape</div>' +
+        '<select class="f-select" data-drawer-field="closeShape" aria-label="Drawer close button shape">' +
+        '<option value="circle"' + (ui.drawer.closeShape === 'circle' || !ui.drawer.closeShape ? ' selected' : '') + '>Circle</option>' +
+        '<option value="square"' + (ui.drawer.closeShape === 'square' ? ' selected' : '') + '>Square</option>' +
+        '</select><small class="f-hint">Circle or rounded-square button.</small></div>' +
+        '</div>' +
+        '<div class="f-row"><div class="f-label">Close label</div>' +
+        '<input class="f-input" type="text" value="' + esc(ui.drawer.closeLabel || '') + '" data-drawer-field="closeLabel" placeholder="Close" aria-label="Drawer close label">' +
+        '<small class="f-hint">Used when the close button shows a text label.</small></div>' +
         '</div>' +
 
         '<div class="nav-group">' +
@@ -617,9 +708,33 @@
           var searchData = S.State.data;
           searchData.ui = searchData.ui || S.defaultUI();
           searchData.ui.search = searchData.ui.search || S.defaultUI().search;
-          searchData.ui.search[searchField] = el.value;
+          searchData.ui.search[searchField] = searchField === 'fieldRadius'
+            ? Math.max(0, Math.min(28, Math.round(Number(el.value) || 0)))
+            : el.value;
+          if (searchField === 'fieldRadius') {
+            var radiusVal = box.querySelector('[data-search-val="fieldRadius"]');
+            if (radiusVal) radiusVal.textContent = searchData.ui.search[searchField] + 'px';
+          }
           S.Render.drawScreen();
           S.State.commit('ui:search:' + searchField);
+          return;
+        }
+
+        /* Drawer appearance and close-button settings */
+        var drawerField = el.getAttribute('data-drawer-field');
+        if (drawerField) {
+          var drawerData = S.State.data;
+          drawerData.ui = drawerData.ui || S.defaultUI();
+          drawerData.ui.drawer = drawerData.ui.drawer || S.defaultUI().drawer;
+          drawerData.ui.drawer[drawerField] = drawerField === 'width'
+            ? Math.max(64, Math.min(96, Math.round(Number(el.value) || 84)))
+            : el.value;
+          if (drawerField === 'width') {
+            var widthVal = box.querySelector('[data-drawer-val="width"]');
+            if (widthVal) widthVal.textContent = drawerData.ui.drawer.width + '%';
+          }
+          S.Render.drawScreen();
+          S.State.commit('ui:drawer:' + drawerField);
           return;
         }
 
@@ -854,6 +969,32 @@
           S.iconTarget = { page: pageIcon };
           S.App.showTab('icons');
           S.IconsPanel.sync();
+          return;
+        }
+
+        var drawerToggle = btn.getAttribute('data-drawer-toggle');
+        if (drawerToggle) {
+          var dToggleData = S.State.data;
+          dToggleData.ui = dToggleData.ui || S.defaultUI();
+          dToggleData.ui.drawer = dToggleData.ui.drawer || S.defaultUI().drawer;
+          var dNext = dToggleData.ui.drawer[drawerToggle] === false;
+          dToggleData.ui.drawer[drawerToggle] = dNext;
+          S.Render.drawScreen();
+          S.State.commit('ui:drawer:' + drawerToggle);
+          self.render();
+          return;
+        }
+
+        var searchToggle = btn.getAttribute('data-search-toggle');
+        if (searchToggle) {
+          var sToggleData = S.State.data;
+          sToggleData.ui = sToggleData.ui || S.defaultUI();
+          sToggleData.ui.search = sToggleData.ui.search || S.defaultUI().search;
+          var sNext = sToggleData.ui.search[searchToggle] === false;
+          sToggleData.ui.search[searchToggle] = sNext;
+          S.Render.drawScreen();
+          S.State.commit('ui:search:' + searchToggle);
+          self.render();
           return;
         }
 

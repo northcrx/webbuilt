@@ -69,7 +69,7 @@
         content = '<div class="phone export-phone' + dark + '" data-search-mode="' +
           esc((d.ui && d.ui.search && d.ui.search.mode) || 'overlay') + '" style="' + tokens +
           '--export-w:' + d.device.width + 'px;--export-h:' + d.device.height + 'px">\n' +
-          '<div class="phone-screen">\n' +
+          '<div class="phone-screen"' + (d.device.statusBar ? ' style="--ui-top:34px"' : '') + '>\n' +
           (d.device.statusBar ? S.Render.statusBar() + '\n' : '') +
           '<div class="app-screen export-stage">\n' + body + '\n</div>\n' +
           (d.device.gestureBar ? S.Render.gestureBar() + '\n' : '') +
@@ -331,13 +331,25 @@
       var body = box.querySelector('.ui-search-results');
       if (!body) return;
       var q = String((input && input.value) || '').trim();
+      var showRecents = box.getAttribute('data-recents') !== '0';
+      var showQuick = box.getAttribute('data-quick') !== '0';
+      var guide = box.querySelector('.ui-search-guide');
+      if (guide) guide.hidden = !!q;
       if (!q) {
-        var recent = readRecent();
-        body.innerHTML = '<div class="ui-search-label">Recent searches</div>' +
-          (recent.length ?
-            '<div class="ui-recent">' + recent.map(pill).join('') + '</div>' :
-            '<p class="ui-search-empty">' +
-            esc(box.getAttribute('data-search-hint') || 'Search pages, screens and menu actions.') + '</p>');
+        var recent = showRecents ? readRecent() : [];
+        var quick = showQuick ? all('.ui-drawer-item').slice(0, 4) : [];
+        var empty = '<p class="ui-search-empty">' +
+          esc(box.getAttribute('data-search-hint') || 'Search pages, screens and menu actions.') + '</p>';
+        var html = '';
+        if (showRecents) {
+          html += '<div class="ui-search-label">Recent searches</div>' +
+            (recent.length ? '<div class="ui-recent">' + recent.map(pill).join('') + '</div>' : empty);
+        }
+        if (quick.length) {
+          html += '<div class="ui-search-label">Quick links</div><div class="ui-recent">' +
+            quick.map(function (b) { return pill(b.getAttribute('data-ui-label') || ''); }).join('') + '</div>';
+        }
+        body.innerHTML = html || empty;
         return;
       }
       var needle = q.toLowerCase();
