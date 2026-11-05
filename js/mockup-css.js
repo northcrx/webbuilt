@@ -1039,6 +1039,179 @@
 }
 .album-grid .track-empty { grid-column: 1 / -1; }
 
+/* Horizontal music-card rails. These are normal page content: each card has
+   artwork, track name and singer, and the rail scrolls sideways on its own. */
+.listen-now { margin: 4px 0 20px; min-width: 0; }
+.ln-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 2px var(--pad-x) 11px;
+}
+.ln-head-text { flex: 1; min-width: 0; }
+.ln-kicker {
+  display: block;
+  margin-bottom: 4px;
+  font-size: .62em;
+  font-weight: 700;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--md-primary);
+}
+.ln-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.16em;
+  line-height: 1.15;
+  letter-spacing: -.015em;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ln-sub {
+  margin: 3px 0 0;
+  font-size: .7em;
+  color: var(--md-on-surface-variant);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ln-tools { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.ln-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px 0;
+  font-size: .68em;
+  font-weight: 700;
+  color: var(--md-primary);
+  white-space: nowrap;
+}
+.ln-action .mi { font-size: 15px; width: 15px; }
+.ln-action .icn { width: 13px; height: 13px; }
+.ln-arrow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--md-on-surface-variant);
+  background: var(--md-surface-container-high);
+}
+.ln-arrow:hover { color: var(--md-on-surface); background: var(--md-surface-container); }
+.ln-arrow .mi { font-size: 18px; }
+.ln-arrow .icn { width: 15px; height: 15px; }
+.ln-rail {
+  display: flex;
+  gap: 12px;
+  padding: 2px var(--pad-x) 7px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ln-rail::-webkit-scrollbar { width: 0; height: 0; }
+.ln-card {
+  flex: 0 0 auto;
+  width: 148px;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+.ln-art {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: calc(var(--md-radius) + 1px);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(145deg, var(--md-primary) 0%, var(--md-tertiary) 100%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .14);
+}
+.ln-card:nth-child(4n + 2) .ln-art { background: linear-gradient(145deg, var(--md-tertiary) 0%, var(--md-primary) 100%); }
+.ln-card:nth-child(4n + 3) .ln-art { background: linear-gradient(145deg, color-mix(in srgb, var(--md-primary) 54%, #12121a) 0%, var(--md-primary) 100%); }
+.ln-card:nth-child(4n + 4) .ln-art { background: linear-gradient(145deg, color-mix(in srgb, var(--md-tertiary) 58%, #12121a) 0%, var(--md-tertiary) 100%); }
+.ln-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(90% 70% at 80% 4%, rgba(255, 255, 255, .26), transparent 62%),
+    linear-gradient(160deg, rgba(255, 255, 255, .18), transparent 50%, rgba(0, 0, 0, .24));
+}
+.ln-glyph { position: relative; z-index: 1; font-size: 46px; width: 46px; height: 46px; opacity: .84; }
+.ln-play {
+  position: absolute;
+  z-index: 2;
+  right: 8px;
+  bottom: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, .92);
+  color: #17141d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .22);
+}
+.ln-play .mi { font-size: 20px; }
+.ln-play .icn { width: 15px; height: 15px; }
+.ln-copy { min-width: 0; }
+.ln-name {
+  margin-top: 8px;
+  font-size: .84em;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ln-artist {
+  margin-top: 1px;
+  font-size: .71em;
+  color: var(--md-on-surface-variant);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Wide cards pair the artwork with the title beside it, like a shuffle row. */
+.listen-now.ln-wide .ln-card {
+  width: 236px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px;
+  border-radius: var(--md-radius);
+  background: var(--md-surface-container-low);
+  border: 1px solid color-mix(in srgb, var(--md-outline-variant) 72%, transparent);
+}
+.listen-now.ln-wide .ln-art {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  aspect-ratio: auto;
+  border-radius: 13px;
+}
+.listen-now.ln-wide .ln-glyph { font-size: 27px; width: 27px; height: 27px; }
+.listen-now.ln-wide .ln-play { width: 26px; height: 26px; right: 4px; bottom: 4px; }
+.listen-now.ln-wide .ln-play .mi { font-size: 16px; }
+.listen-now.ln-wide .ln-play .icn { width: 12px; height: 12px; }
+.listen-now.ln-wide .ln-copy { flex: 1; }
+.listen-now.ln-wide .ln-name { margin-top: 0; }
+
+/* Compact tiles fit more artwork in one glance. */
+.listen-now.ln-tile .ln-card { width: 110px; }
+.listen-now.ln-tile .ln-art { border-radius: 14px; }
+.listen-now.ln-tile .ln-glyph { font-size: 34px; width: 34px; height: 34px; }
+.listen-now.ln-tile .ln-name { margin-top: 6px; font-size: .78em; }
+.listen-now.ln-tile .ln-artist { font-size: .66em; }
+.listen-now.ln-tile .ln-play { width: 27px; height: 27px; right: 6px; bottom: 6px; }
+.listen-now.ln-tile .ln-play .mi { font-size: 17px; }
+
 .mini-player {
   position: relative;
   margin: 6px var(--pad-x) 14px;
@@ -1068,18 +1241,96 @@
 .mini-info { flex: 1; min-width: 0; }
 .mini-title { font-size: .86em; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini-artist { margin-top: 1px; font-size: .72em; color: var(--md-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-actions { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
 .mini-btn {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  color: var(--md-on-surface);
+  color: var(--md-on-surface-variant);
 }
-.mini-btn:last-child { color: var(--md-on-surface-variant); }
-.mini-btn .mi { font-size: 24px; }
-.mini-btn .icn { width: 19px; height: 19px; }
+.mini-btn:hover { background: color-mix(in srgb, var(--md-on-surface) 7%, transparent); }
+.mini-btn .mi { font-size: 23px; }
+.mini-btn .icn { width: 18px; height: 18px; }
+.mini-play {
+  width: 42px;
+  height: 42px;
+  color: var(--md-on-primary);
+  background: var(--md-primary);
+  box-shadow: 0 7px 16px color-mix(in srgb, var(--md-primary) 34%, transparent);
+}
+.mini-play:hover { background: var(--md-primary); filter: brightness(1.03); }
+.mini-play .mi { font-size: 25px; }
+.mini-play .icn { width: 19px; height: 19px; }
+
+/* Large-artwork layout keeps the clean bar but gives the cover more weight. */
+.mini-artwork { padding: 9px 10px 9px 9px; }
+.mini-artwork .mini-art { width: 54px; height: 54px; border-radius: 15px; }
+.mini-artwork .mini-art .mi { font-size: 26px; }
+.mini-artwork .mini-title { font-size: .92em; }
+.mini-artwork .mini-play { width: 46px; height: 46px; }
+.mini-artwork .mini-actions { gap: 3px; }
+
+/* Circular-progress layout: the ring is driven by the block's progress value,
+   so 25% draws exactly a quarter-circle arc around the play button. */
+.mini-ring {
+  padding: 9px 10px 9px 9px;
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--md-primary) 15%, var(--md-surface-container-high)), var(--md-surface-container-high));
+  border: 1px solid color-mix(in srgb, var(--md-primary) 15%, var(--md-outline-variant));
+}
+.mini-ring .mini-art { width: 44px; height: 44px; border-radius: 50%; }
+.mini-ring .mini-art .mi { font-size: 22px; }
+.mini-ring .mini-actions { gap: 4px; }
+.mini-play-ring {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.mini-play-ring:hover { background: transparent; filter: none; }
+.mini-play-face {
+  position: relative;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--md-on-primary);
+  background: var(--md-primary);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--md-primary) 34%, transparent);
+}
+.mini-play-face .mi { font-size: 22px; }
+.mini-play-face .icn { width: 17px; height: 17px; }
+.mini-progress-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+.mini-ring-track { fill: none; stroke: color-mix(in srgb, var(--md-primary) 18%, transparent); stroke-width: 3.2; }
+.mini-ring-fill {
+  fill: none;
+  stroke: var(--md-primary);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset .35s ease;
+}
+.mini-progress-text {
+  margin-top: 3px;
+  font-size: .64em;
+  font-weight: 600;
+  color: var(--md-on-surface-variant);
+  white-space: nowrap;
+}
+.mini-progress-text b { color: var(--md-primary); font-weight: 750; }
 
 /* ============ download blocks ============ */
 .dl-item {
@@ -1688,6 +1939,8 @@
 @media (prefers-reduced-motion: reduce) {
   .track-eq i { animation: none; }
   .dl-bar span { transition: none; }
+  .mini-ring-fill { transition: none; }
+  .ln-rail { scroll-behavior: auto; }
 }
 
 /* ============ editor-only ============ */

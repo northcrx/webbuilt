@@ -407,6 +407,23 @@
       U.toast('Editing “' + (S.State.data.pages[index] || {}).name + '”');
     },
 
+    /* Horizontal music-card rails use native scrolling; the arrow buttons just
+       move them by roughly one viewport. Works in preview and export too. */
+    scrollRail: function (button) {
+      if (!button) return;
+      var host = button.closest('.listen-now') || button.closest('.cmp');
+      var rail = host && host.querySelector('.ln-rail');
+      if (!rail) return;
+      var direction = button.getAttribute('data-rail') === 'prev' ? -1 : 1;
+      var step = Math.max(120, Math.round(rail.clientWidth * 0.8)) * direction;
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (rail.scrollBy) {
+        rail.scrollBy({ left: step, behavior: reduce ? 'auto' : 'smooth' });
+      } else {
+        rail.scrollLeft += step;
+      }
+    },
+
     setTarget: function (target) {
       var d = S.State.data;
       if (!S.targets[target] || d.target === target) return;
@@ -821,6 +838,16 @@
 
       stage.addEventListener('click', function (e) {
         if (S.Drag && S.Drag.shouldIgnoreClick && S.Drag.shouldIgnoreClick()) return;
+
+        /* Rail arrows scroll cards without selecting the block. Handled before
+           the preview / edit guards so they work in both modes. */
+        var railBtn = e.target.closest('[data-rail]');
+        if (railBtn) {
+          e.preventDefault();
+          self.scrollRail(railBtn);
+          return;
+        }
+
         if (self.previewMode) return;
         if (S.State.data.compare.on) return;
 

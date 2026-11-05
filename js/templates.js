@@ -172,12 +172,42 @@
             b('appbar', { title: 'Listen', variant: 'large', actions: 'search, more_vert', elevated: false }),
             b('chips', { labels: 'Made for you, New, Charts, Offline', selected: 0 }),
             b('hero', { kicker: 'Album of the week', title: 'Golden Hour', subtitle: 'Nia Sol · 12 tracks of warm, slow soul.', icon: 'album', height: 200 }),
-            b('section', { title: 'Recently played', action: 'History' }),
-            b('list', {
-              items: 'Golden Hour | Nia Sol · 12 tracks\nLow Orbit | Kite Club · 9 tracks\nPaper Rooms | Milo Fenn · 14 tracks',
-              leading: 'icon', leadingIcon: 'play_circle', trailing: 'none'
+            b('listennow', {
+              kicker: 'Made for you',
+              title: 'For you',
+              subtitle: 'Fresh picks from your recent listening',
+              action: 'See all',
+              layout: 'poster',
+              items: 'Midnight Drive | Nova Lane | headphones\nPaper Planes | Kite Club | flight\nLow Orbit | Nia Sol | public\nAfter Rain | Vela | water_drop\nStatic Bloom | Milo Fenn | graphic_eq\nGolden Hour | Nia Sol | wb_sunny'
             }),
-            b('card', { variant: 'filled', title: 'Late night radio', body: 'Two hours of low light and slow tempo, refreshed every Friday.', media: false, actions: 'Play, Save' }),
+            b('listennow', {
+              kicker: 'Mix it up',
+              title: 'Shuffle your music',
+              subtitle: 'A different order every time',
+              action: 'Shuffle',
+              layout: 'wide',
+              items: 'Neon Hours | Nova Lane | shuffle\nCoastal Lines | Vela | waves\nNight Bus | Kite Club | directions_bus\nSlow Motion | Milo Fenn | speed\nPaper Rooms | Nia Sol | meeting_room'
+            }),
+            b('listennow', {
+              kicker: 'Fresh drops',
+              title: 'Listen now',
+              subtitle: 'New releases picked this week',
+              action: '',
+              layout: 'tile',
+              items: 'Golden Hour | Nia Sol | wb_sunny\nLow Orbit | Kite Club | public\nAfter Rain | Vela | water_drop\nMidnight Drive | Nova Lane | headphones\nStatic Bloom | Milo Fenn | graphic_eq'
+            }),
+            b('miniplayer', {
+              layout: 'ring',
+              title: 'Midnight Drive',
+              artist: 'Nova Lane',
+              coverIcon: 'headphones',
+              progress: 25,
+              playing: true,
+              dock: true,
+              showPrevious: true,
+              showNext: true,
+              showMore: false
+            }),
             b('bottomnav', { items: 'home:Home\nsearch:Search\nlibrary_music:Library\nperson:You', active: 0 })
           ]);
         }

@@ -248,6 +248,21 @@
     function frameOf(el) {
       return el.closest('.phone,.browser,.ext-window,.web-page');
     }
+    /* Scroll a horizontal music-card rail by roughly one screenful. */
+    function scrollRail(button) {
+      if (!button) return;
+      var host = button.closest('.listen-now') || button.closest('.cmp');
+      var rail = host && host.querySelector('.ln-rail');
+      if (!rail) return;
+      var direction = button.getAttribute('data-rail') === 'prev' ? -1 : 1;
+      var step = Math.max(120, Math.round(rail.clientWidth * 0.8)) * direction;
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (rail.scrollBy) {
+        rail.scrollBy({ left: step, behavior: reduce ? 'auto' : 'smooth' });
+      } else {
+        rail.scrollLeft += step;
+      }
+    }
     function open(type, action) {
       closeAll();
       if (type === 'search' && searchMode() === 'page') {
@@ -343,6 +358,12 @@
     }
 
     document.addEventListener('click', function (e) {
+      var railBtn = e.target.closest('[data-rail]');
+      if (railBtn) {
+        e.preventDefault();
+        scrollRail(railBtn);
+        return;
+      }
       var action = e.target.closest('[data-ui-action]');
       if (action) {
         e.preventDefault();

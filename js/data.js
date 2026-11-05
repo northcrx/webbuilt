@@ -533,7 +533,17 @@
         elapsed: '1:48',
         duration: '4:12',
         liked: true,
-        playing: true
+        playing: true,
+        likeIcon: 'favorite',
+        unlikeIcon: 'favorite_border',
+        shuffleIcon: 'shuffle',
+        previousIcon: 'skip_previous',
+        playIcon: 'play_arrow',
+        pauseIcon: 'pause',
+        nextIcon: 'skip_next',
+        repeatIcon: 'repeat',
+        lyricsIcon: 'lyrics',
+        queueIcon: 'queue_music'
       },
       fields: [
         { key: 'title', label: 'Track title', type: 'text' },
@@ -544,7 +554,17 @@
         { key: 'elapsed', label: 'Elapsed time', type: 'text' },
         { key: 'duration', label: 'Duration', type: 'text' },
         { key: 'liked', label: 'Liked', type: 'toggle' },
-        { key: 'playing', label: 'Playing', type: 'toggle' }
+        { key: 'playing', label: 'Playing', type: 'toggle' },
+        { key: 'likeIcon', label: 'Liked icon', type: 'icon' },
+        { key: 'unlikeIcon', label: 'Not liked icon', type: 'icon' },
+        { key: 'shuffleIcon', label: 'Shuffle icon', type: 'icon' },
+        { key: 'previousIcon', label: 'Previous icon', type: 'icon' },
+        { key: 'playIcon', label: 'Play icon', type: 'icon' },
+        { key: 'pauseIcon', label: 'Pause icon', type: 'icon' },
+        { key: 'nextIcon', label: 'Next icon', type: 'icon' },
+        { key: 'repeatIcon', label: 'Repeat icon', type: 'icon' },
+        { key: 'lyricsIcon', label: 'Lyrics icon', type: 'icon' },
+        { key: 'queueIcon', label: 'Up next icon', type: 'icon' }
       ],
       html: function (p) {
         var progress = number(p.progress, 0, 0, 100);
@@ -552,7 +572,7 @@
           '<div class="mp-art">' + S.icon(p.coverIcon || 'headphones', 'mp-glyph') +
           '<button type="button" class="mp-fav' + (p.liked ? ' on' : '') + '" aria-label="' +
           (p.liked ? 'Remove from favourites' : 'Add to favourites') + '">' +
-          S.icon(p.liked ? 'favorite' : 'favorite_border') + '</button></div>' +
+          S.icon(p.liked ? (p.likeIcon || 'favorite') : (p.unlikeIcon || 'favorite_border')) + '</button></div>' +
           '<div class="mp-meta"><span class="mp-kicker">Now playing</span>' +
           '<h3 data-edit="title">' + esc(p.title) + '</h3>' +
           '<p><span data-edit="artist">' + esc(p.artist) + '</span> · <span data-edit="album">' +
@@ -561,16 +581,16 @@
           '<div class="mp-times"><span data-edit="elapsed">' + esc(p.elapsed) + '</span>' +
           '<span data-edit="duration">' + esc(p.duration) + '</span></div></div>' +
           '<div class="mp-controls">' +
-          '<button type="button" class="mp-btn" aria-label="Shuffle">' + S.icon('shuffle') + '</button>' +
-          '<button type="button" class="mp-btn" aria-label="Previous track">' + S.icon('skip_previous') + '</button>' +
+          '<button type="button" class="mp-btn" aria-label="Shuffle">' + S.icon(p.shuffleIcon || 'shuffle') + '</button>' +
+          '<button type="button" class="mp-btn" aria-label="Previous track">' + S.icon(p.previousIcon || 'skip_previous') + '</button>' +
           '<button type="button" class="mp-play" aria-label="' + (p.playing ? 'Pause' : 'Play') + '">' +
-          S.icon(p.playing ? 'pause' : 'play_arrow') + '</button>' +
-          '<button type="button" class="mp-btn" aria-label="Next track">' + S.icon('skip_next') + '</button>' +
-          '<button type="button" class="mp-btn" aria-label="Repeat">' + S.icon('repeat') + '</button>' +
+          S.icon(p.playing ? (p.pauseIcon || 'pause') : (p.playIcon || 'play_arrow')) + '</button>' +
+          '<button type="button" class="mp-btn" aria-label="Next track">' + S.icon(p.nextIcon || 'skip_next') + '</button>' +
+          '<button type="button" class="mp-btn" aria-label="Repeat">' + S.icon(p.repeatIcon || 'repeat') + '</button>' +
           '</div>' +
           '<div class="mp-foot">' +
-          '<button type="button" class="mp-text">' + S.icon('lyrics') + '<span>Lyrics</span></button>' +
-          '<button type="button" class="mp-text">' + S.icon('queue_music') + '<span>Up next</span></button>' +
+          '<button type="button" class="mp-text">' + S.icon(p.lyricsIcon || 'lyrics') + '<span>Lyrics</span></button>' +
+          '<button type="button" class="mp-text">' + S.icon(p.queueIcon || 'queue_music') + '<span>Up next</span></button>' +
           '</div></div>';
       }
     },
@@ -639,38 +659,140 @@
       }
     },
 
+    listennow: {
+      label: 'Music cards',
+      group: 'Music',
+      icon: 'view_carousel',
+      targets: ['app'],
+      defaults: {
+        kicker: 'Made for you',
+        title: 'For you',
+        subtitle: 'Fresh picks from your recent listening',
+        action: 'See all',
+        layout: 'poster',
+        items: 'Midnight Drive | Nova Lane | headphones\nPaper Planes | Kite Club | flight\nLow Orbit | Nia Sol | public\nAfter Rain | Vela | water_drop\nStatic Bloom | Milo Fenn | graphic_eq\nGolden Hour | Nia Sol | wb_sunny'
+      },
+      fields: [
+        { key: 'kicker', label: 'Small label', type: 'text', hint: 'Shown above the rail title — for example “Made for you”.' },
+        { key: 'title', label: 'Rail title', type: 'text' },
+        { key: 'subtitle', label: 'Subtitle', type: 'text' },
+        { key: 'action', label: 'Action label', type: 'text' },
+        { key: 'layout', label: 'Card layout', type: 'select', options: [
+          ['poster', 'Poster cards'],
+          ['wide', 'Wide shuffle cards'],
+          ['tile', 'Compact tiles']
+        ] },
+        { key: 'items', label: 'Tracks — one per line: Title | Artist | Icon', type: 'textarea' }
+      ],
+      html: function (p) {
+        var layout = ['poster', 'wide', 'tile'].indexOf(p.layout) > -1 ? p.layout : 'poster';
+        var cards = lines(p.items).map(function (line) {
+          var row = parts(line);
+          return '<article class="ln-card" role="listitem">' +
+            '<div class="ln-art">' + S.icon(row[2] || 'music_note', 'ln-glyph') +
+            '<button type="button" class="ln-play" aria-label="Play ' + esc(row[0] || 'track') + '">' +
+            S.icon('play_arrow') + '</button></div>' +
+            '<div class="ln-copy"><div class="ln-name">' + esc(row[0] || 'Untitled track') + '</div>' +
+            '<div class="ln-artist">' + esc(row[1] || 'Unknown artist') + '</div></div></article>';
+        }).join('');
+        var action = p.action
+          ? '<span class="ln-action" data-edit="action">' + esc(p.action) + S.icon('chevron_right') + '</span>'
+          : '';
+        return '<div class="listen-now ln-' + layout + '">' +
+          '<div class="ln-head"><div class="ln-head-text">' +
+          (p.kicker ? '<span class="ln-kicker" data-edit="kicker">' + esc(p.kicker) + '</span>' : '') +
+          '<h3 class="ln-title" data-edit="title">' + esc(p.title) + '</h3>' +
+          (p.subtitle ? '<p class="ln-sub" data-edit="subtitle">' + esc(p.subtitle) + '</p>' : '') +
+          '</div><div class="ln-tools">' + action +
+          '<button type="button" class="ln-arrow" data-rail="prev" title="Scroll cards left" aria-label="Scroll ' +
+          esc(p.title || 'music') + ' cards left">' + S.icon('chevron_left') + '</button>' +
+          '<button type="button" class="ln-arrow" data-rail="next" title="Scroll cards right" aria-label="Scroll ' +
+          esc(p.title || 'music') + ' cards right">' + S.icon('chevron_right') + '</button>' +
+          '</div></div>' +
+          '<div class="ln-rail" role="list" tabindex="0" aria-label="' + esc(p.title || 'Music') + ' cards">' +
+          (cards || '<div class="track-empty">Add a few tracks in the inspector.</div>') + '</div></div>';
+      }
+    },
+
     miniplayer: {
       label: 'Mini player',
       group: 'Music',
       icon: 'graphic_eq',
       targets: ['app'],
       defaults: {
+        layout: 'classic',
         title: 'Midnight Drive',
         artist: 'Nova Lane',
         coverIcon: 'headphones',
         progress: 64,
         playing: true,
-        dock: false
+        dock: false,
+        playIcon: 'play_arrow',
+        pauseIcon: 'pause',
+        previousIcon: 'skip_previous',
+        nextIcon: 'skip_next',
+        moreIcon: 'more_horiz',
+        showPrevious: false,
+        showNext: true,
+        showMore: false
       },
       fields: [
+        { key: 'layout', label: 'Layout', type: 'select', options: [
+          ['classic', 'Classic bar'],
+          ['artwork', 'Large artwork'],
+          ['ring', 'Circular progress']
+        ] },
         { key: 'title', label: 'Track title', type: 'text' },
         { key: 'artist', label: 'Artist', type: 'text' },
-        { key: 'coverIcon', label: 'Cover icon', type: 'icon' },
+        { key: 'coverIcon', label: 'Artwork icon', type: 'icon' },
         { key: 'progress', label: 'Progress', type: 'range', min: 0, max: 100, step: 1, suffix: '%' },
         { key: 'playing', label: 'Playing', type: 'toggle' },
+        { key: 'playIcon', label: 'Play icon', type: 'icon' },
+        { key: 'pauseIcon', label: 'Pause icon', type: 'icon' },
+        { key: 'previousIcon', label: 'Previous icon', type: 'icon' },
+        { key: 'nextIcon', label: 'Next icon', type: 'icon' },
+        { key: 'moreIcon', label: 'More icon', type: 'icon' },
+        { key: 'showPrevious', label: 'Show previous button', type: 'toggle' },
+        { key: 'showNext', label: 'Show next button', type: 'toggle' },
+        { key: 'showMore', label: 'Show more button', type: 'toggle' },
         { key: 'dock', label: 'Dock above bottom navigation', type: 'toggle' }
       ],
       html: function (p) {
         var progress = number(p.progress, 0, 0, 100);
-        return '<div class="mini-player' + (p.dock ? ' is-docked' : '') + '" data-progress="' + progress + '">' +
-          '<div class="mini-bar"><span style="width:' + progress + '%"></span></div>' +
+        var layout = ['classic', 'artwork', 'ring'].indexOf(p.layout) > -1 ? p.layout : 'classic';
+        var playIcon = p.playing ? (p.pauseIcon || 'pause') : (p.playIcon || 'play_arrow');
+        var ringed = layout === 'ring';
+        var ring = ringed
+          ? '<svg class="mini-progress-ring" viewBox="0 0 44 44" aria-hidden="true">' +
+            '<circle class="mini-ring-track" cx="22" cy="22" r="19" pathLength="100"></circle>' +
+            '<circle class="mini-ring-fill" cx="22" cy="22" r="19" pathLength="100" ' +
+            'stroke-dasharray="100" stroke-dashoffset="' + (100 - progress) + '"></circle></svg>'
+          : '';
+        var previous = p.showPrevious === true
+          ? '<button type="button" class="mini-btn mini-prev" aria-label="Previous track">' +
+            S.icon(p.previousIcon || 'skip_previous') + '</button>'
+          : '';
+        var next = p.showNext !== false
+          ? '<button type="button" class="mini-btn mini-next" aria-label="Next track">' +
+            S.icon(p.nextIcon || 'skip_next') + '</button>'
+          : '';
+        var more = p.showMore === true
+          ? '<button type="button" class="mini-btn mini-more" aria-label="More options">' +
+            S.icon(p.moreIcon || 'more_horiz') + '</button>'
+          : '';
+
+        return '<div class="mini-player mini-' + layout + (p.dock ? ' is-docked' : '') +
+          '" data-progress="' + progress + '" style="--mini-progress:' + progress + '">' +
+          (ringed ? '' : '<div class="mini-bar"><span style="width:' + progress + '%"></span></div>') +
           '<div class="mini-art">' + S.icon(p.coverIcon || 'headphones') + '</div>' +
           '<div class="mini-info"><div class="mini-title" data-edit="title">' + esc(p.title) + '</div>' +
-          '<div class="mini-artist" data-edit="artist">' + esc(p.artist) + '</div></div>' +
-          '<button type="button" class="mini-btn" aria-label="' + (p.playing ? 'Pause' : 'Play') + '">' +
-          S.icon(p.playing ? 'pause' : 'play_arrow') + '</button>' +
-          '<button type="button" class="mini-btn" aria-label="Next track">' + S.icon('skip_next') + '</button>' +
-          '</div>';
+          '<div class="mini-artist" data-edit="artist">' + esc(p.artist) + '</div>' +
+          (ringed ? '<div class="mini-progress-text"><b>' + progress + '%</b> played</div>' : '') +
+          '</div><div class="mini-actions">' + previous +
+          '<button type="button" class="mini-btn mini-play' + (ringed ? ' mini-play-ring' : '') +
+          '" aria-label="' + (p.playing ? 'Pause' : 'Play') + '">' +
+          ring + (ringed ? '<span class="mini-play-face">' + S.icon(playIcon) + '</span>' : S.icon(playIcon)) +
+          '</button>' + next + more + '</div></div>';
       }
     },
 
