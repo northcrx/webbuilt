@@ -145,7 +145,7 @@ const fakeMiniPlayer = { id: 'test_mp', type: 'miniplayer', props: {} };
 
 S.State.data.target = 'web';
 assert('In web target, isDockBlock(bottomnav) returns false (no dock rendering)', S.Render.isDockBlock(fakeBottomNav) === false);
-assert('In web target, isDockBlock(miniplayer) returns true (pinned to bottom of browser window)', S.Render.isDockBlock(fakeMiniPlayer) === true);
+assert('In web target, isDockBlock(miniplayer) returns false (no music player in web dock)', S.Render.isDockBlock(fakeMiniPlayer) === false);
 assert('In web target, dockMarkup returns empty string', S.Render.dockMarkup() === '');
 
 S.State.data.target = 'app';

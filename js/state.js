@@ -132,8 +132,15 @@
       } else if (Array.isArray(opts.screen)) {
         newScreen = [];
       } else if (currentBlocks.length) {
-        var headerTypes = ['appbar', 'searchheader', 'profilebar', 'storeheader', 'capsuleheader', 'tabs', 'tabspill', 'tabssegmented', 'tabsbadge', 'tabsicon', 'webnav', 'exthead'];
-        var footerTypes = ['bottomnav', 'bottomnavfloating', 'bottomnavfab', 'bottomnavexpanding', 'bottomnavglass', 'miniplayer', 'webfooter', 'extfoot'];
+        var headerTypes = ['appbar', 'searchheader', 'profilebar', 'storeheader', 'capsuleheader', 'tabs', 'tabspill', 'tabssegmented', 'tabsbadge', 'tabsicon'];
+        var footerTypes = ['bottomnav', 'bottomnavfloating', 'bottomnavfab', 'bottomnavexpanding', 'bottomnavglass', 'miniplayer'];
+        if (d.target === 'web') {
+          headerTypes = ['webnav'];
+          footerTypes = ['webfooter'];
+        } else if (d.target === 'ext') {
+          headerTypes = ['exthead', 'extheader'];
+          footerTypes = ['extfoot', 'extfooter'];
+        }
         var persistentBlocks = [];
         currentBlocks.forEach(function (b) {
           if (headerTypes.indexOf(b.type) > -1 || footerTypes.indexOf(b.type) > -1) {
@@ -889,7 +896,7 @@
   }
 
   function syncNavFor(d) {
-    if (!d || !Array.isArray(d.pages) || !d.pages.length) return;
+    if (!d || d.target !== 'app' || !Array.isArray(d.pages) || !d.pages.length) return;
     var navPages = d.pages.filter(function (page) {
       return !page.hiddenFromNav;
     });
@@ -1092,6 +1099,19 @@
       }
     }
     syncNavFor(base);
+
+    if (base.target === 'web') {
+      base.screen = (base.screen || []).filter(function (b) {
+        return b.type !== 'bottomnav' && b.type.indexOf('bottomnav') !== 0 && b.type !== 'miniplayer';
+      });
+      if (Array.isArray(base.pages)) {
+        base.pages.forEach(function (p) {
+          p.screen = (p.screen || []).filter(function (b) {
+            return b.type !== 'bottomnav' && b.type.indexOf('bottomnav') !== 0 && b.type !== 'miniplayer';
+          });
+        });
+      }
+    }
 
     base.stash = {};
     var stash = saved.stash || {};

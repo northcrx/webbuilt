@@ -108,18 +108,17 @@ test('isDockBlock returns true for miniplayer in mobile app target', () => {
   assert.strictEqual(S.Render.isDockBlock(mp), true);
 });
 
-test('isDockBlock returns true for miniplayer in web target (sticky bottom bar)', () => {
+test('isDockBlock returns false for miniplayer in web target (no dock in website builder)', () => {
   S.State.data.target = 'web';
   const mp = S.makeBlock('miniplayer');
-  assert.strictEqual(S.Render.isDockBlock(mp), true);
+  assert.strictEqual(S.Render.isDockBlock(mp), false);
 });
 
-test('dockMarkup renders miniplayer in web target dock', () => {
+test('dockMarkup returns empty string in web target (websites have no mobile dock)', () => {
   S.State.data.target = 'web';
   const mp = S.makeBlock('miniplayer');
   const dockHtml = S.Render.dockMarkup(false, null, [mp]);
-  assert(dockHtml.includes('screen-dock'), 'dockMarkup should produce .screen-dock');
-  assert(dockHtml.includes('cmp-miniplayer'), 'dockMarkup should render cmp-miniplayer inside dock');
+  assert.strictEqual(dockHtml, '', 'dockMarkup should be empty in web mode');
 });
 
 test('dockMarkup sorts miniplayer BEFORE bottomnav in mobile app', () => {
@@ -133,14 +132,14 @@ test('dockMarkup sorts miniplayer BEFORE bottomnav in mobile app', () => {
   assert(mpIdx < bnIdx, 'miniplayer must be ordered before bottomnav in the dock');
 });
 
-test('webInner includes screen-dock when miniplayer is on the page', () => {
+test('webInner never includes screen-dock or bottom music player in website builder', () => {
   S.State.data.target = 'web';
   const mp = S.makeBlock('miniplayer');
   const hero = S.makeBlock('webhero');
   S.State.data.screen = [hero, mp];
   const webHtml = S.Render.webInner(false);
-  assert(webHtml.includes('screen-dock'), 'webInner must render screen-dock');
-  assert(webHtml.includes('cmp-miniplayer'), 'webInner must dock the miniplayer at bottom');
+  assert(!webHtml.includes('screen-dock'), 'webInner must never render screen-dock');
+  assert(!webHtml.includes('cmp-miniplayer'), 'webInner must never show miniplayer at bottom in website builder');
 });
 
 console.log('\n--- TEST SUITE 2: Page & Tab Title Cross-Contamination Fix ---');

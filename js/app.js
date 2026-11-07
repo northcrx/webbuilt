@@ -1006,6 +1006,13 @@
         d.screen = d.screen.filter(function (b) {
           return b.type !== 'bottomnav' && b.type.indexOf('bottomnav') !== 0 && b.type !== 'miniplayer';
         });
+        if (Array.isArray(d.pages)) {
+          d.pages.forEach(function (p) {
+            p.screen = (p.screen || []).filter(function (b) {
+              return b.type !== 'bottomnav' && b.type.indexOf('bottomnav') !== 0 && b.type !== 'miniplayer';
+            });
+          });
+        }
       }
 
       S.iconTarget = null;
@@ -1028,7 +1035,13 @@
       d.theme = built.theme;
 
       /* A template replaces the whole project, so rebuild the screen list too. */
-      if (d.target === 'app') {
+      if (d.target === 'web') {
+        d.screen = d.screen.filter(function (b) {
+          return b.type !== 'bottomnav' && b.type.indexOf('bottomnav') !== 0 && b.type !== 'miniplayer';
+        });
+        d.pages = [{ id: S.util.uid(), name: 'Home', icon: 'msr:web', screen: d.screen }];
+        d.activePageId = d.pages[0].id;
+      } else if (d.target === 'app') {
         if (built.pages && built.pages.length) {
           d.pages = built.pages;
           var active = d.pages.filter(function (p) { return p.id === built.activePageId; })[0] || d.pages[0];

@@ -2614,6 +2614,7 @@
 .browser-act .mi { font-size: 18px; }
 .browser-screen { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 .browser-screen > .screen-dock {
+  display: none !important;
   width: 100%;
   flex: 0 0 auto;
   background: var(--w-card, var(--md-surface));

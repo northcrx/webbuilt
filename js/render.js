@@ -546,9 +546,12 @@
 
     playerModalMarkup: function () {
       var d = S.State.data;
+      var target = (d && d.target) || 'app';
+      if (target !== 'app') return '';
       var mpBlock = (d.screen || []).filter(function (it) {
         return it.type === 'miniplayer' || it.type === 'musicplayer';
       })[0];
+      if (!mpBlock) return '';
       var props = (mpBlock && mpBlock.props) || {};
       var title = props.title || 'Midnight Drive';
       var artist = props.artist || 'Nova Lane';
@@ -794,11 +797,11 @@
     isDockBlock: function (item) {
       if (!item) return false;
       var target = (S.State.data && S.State.data.target) || 'app';
+      if (target !== 'app') return false;
       if (item.type === 'bottomnav' || (item.type && item.type.indexOf('bottomnav') === 0)) {
-        return target === 'app';
+        return true;
       }
       if (item.type === 'miniplayer') {
-        // ALWAYS dock miniplayer at bottom (in both mobile app and website)
         return true;
       }
       return false;
@@ -821,7 +824,7 @@
     dockMarkup: function (selecting, selectedId, list) {
       var d = S.State.data;
       var target = (d && d.target) || 'app';
-      if (target !== 'app' && target !== 'web') return '';
+      if (target !== 'app') return '';
       var self = this;
       var rawItems = (list || d.screen).filter(function (item) {
         return self.isDockBlock(item);
@@ -949,7 +952,7 @@
       var d = S.State.data;
       var t = S.targets.web;
       var webBlocks = (d.screen || []).filter(function (b) {
-        return b.type !== 'bottomnav' && b.type.indexOf('bottomnav') !== 0;
+        return b.type !== 'bottomnav' && b.type.indexOf('bottomnav') !== 0 && b.type !== 'miniplayer';
       });
       return '<div class="browser-bar">' +
         '<div class="browser-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>' +
@@ -959,7 +962,6 @@
         '<div class="browser-screen"><div class="web-screen screen-surface' + (selecting ? ' selecting' : '') + '">' +
         '<div class="web-page">' + this.screenMarkup(selecting, d.selectedId, true, webBlocks) + '</div>' +
         '</div>' +
-        this.dockMarkup(selecting, d.selectedId, webBlocks) +
         '</div>';
     },
 
@@ -1028,7 +1030,7 @@
         var host = target === 'app' ? frame.querySelector('.phone-screen')
           : target === 'web' ? frame.querySelector('.web-page')
           : frame;
-        if (host) host.insertAdjacentHTML('beforeend', self.overlayMarkup());
+        if (host && target === 'app') host.insertAdjacentHTML('beforeend', self.overlayMarkup());
         wrap.appendChild(frame);
         stage.appendChild(wrap);
       });
