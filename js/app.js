@@ -2,6 +2,7 @@
 (function () {
   var S = window.Studio = window.Studio || {};
   var U = S.util;
+  var esc = U.esc;
   var editing = null;
 
   function $(sel) { return document.querySelector(sel); }

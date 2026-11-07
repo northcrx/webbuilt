@@ -32,7 +32,7 @@ function makeEl(id) {
       contains: function () { return false; }
     },
     querySelectorAll: function () { return []; },
-    querySelector: function () { return null; },
+    querySelector: function () { return makeEl(); },
     appendChild: function () {},
     removeChild: function () {},
     focus: function () {},
@@ -65,7 +65,7 @@ global.document = {
     return makeEl(id);
   },
   querySelectorAll: function () { return []; },
-  querySelector: function () { return null; },
+  querySelector: function () { return makeEl(); },
   createElement: function () {
     return makeEl();
   },
@@ -191,6 +191,13 @@ test('setCanvasPattern updates canvas background pattern', () => {
     assert.strictEqual(global.document.body['data-canvas-pattern'], pt);
     assert.strictEqual(global.localStorage.getItem('droidlab.canvasPattern'), pt);
   });
+});
+
+test('S.App.initEditorDesign and updateEditorDesignModal execute cleanly without ReferenceError', () => {
+  assert.doesNotThrow(() => {
+    S.App.initEditorDesign();
+    S.App.updateEditorDesignModal();
+  }, 'updateEditorDesignModal should execute without ReferenceError');
 });
 
 console.log('\n--- TEST SUITE 3: Widget Garden & Custom Block Studio ---');
