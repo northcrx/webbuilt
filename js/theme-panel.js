@@ -109,6 +109,10 @@
           S.State.commit('theme:radius');
           return;
         }
+        if (el.id === 'theme-iw' || el.id === 'theme-if' || el.id === 'theme-is') {
+          S.State.data.theme = S.State.data.theme || {};
+          S.State.data.theme.icons = S.State.data.theme.icons || { weight: 400, fill: 0, stroke: 1.8 };
+        }
         if (el.id === 'theme-iw') {
           S.State.data.theme.icons.weight = Number(el.value);
           document.getElementById('theme-iw-val').textContent = el.value;
@@ -133,10 +137,15 @@
     },
 
     apply: function (primary, fromPicker) {
+      if (!primary) return;
       S.State.data.theme.primary = primary;
+      var el = document.getElementById('theme-color');
+      if (el) el.value = primary;
+      var hex = document.getElementById('theme-hex');
+      if (hex && document.activeElement !== hex) hex.value = primary.toUpperCase();
+      this.sync();
       S.Render.drawScreen();
       S.State.commit('theme:primary');
-      this.sync();
       if (!fromPicker) U.toast('Accent applied');
     },
 
@@ -148,7 +157,9 @@
     },
 
     sync: function () {
-      var t = S.State.data.theme;
+      var d = S.State.data;
+      if (!d || !d.theme) return;
+      var t = d.theme;
       var box = document.getElementById('tab-theme');
       if (!box) return;
 
@@ -173,18 +184,19 @@
       var dark = document.getElementById('theme-dark');
       if (dark) dark.classList.toggle('on', !!t.dark);
 
+      var icons = t.icons || { weight: 400, fill: 0, stroke: 1.8 };
       var iw = document.getElementById('theme-iw');
       var ifill = document.getElementById('theme-if');
       var istroke = document.getElementById('theme-is');
-      if (iw) iw.value = t.icons.weight;
-      if (ifill) ifill.value = t.icons.fill;
-      if (istroke) istroke.value = t.icons.stroke;
+      if (iw) iw.value = icons.weight != null ? icons.weight : 400;
+      if (ifill) ifill.value = icons.fill != null ? icons.fill : 0;
+      if (istroke) istroke.value = icons.stroke != null ? icons.stroke : 1.8;
       var iwv = document.getElementById('theme-iw-val');
-      if (iwv) iwv.textContent = t.icons.weight;
+      if (iwv) iwv.textContent = icons.weight != null ? icons.weight : 400;
       var ifv = document.getElementById('theme-if-val');
-      if (ifv) ifv.textContent = t.icons.fill;
+      if (ifv) ifv.textContent = icons.fill != null ? icons.fill : 0;
       var isv = document.getElementById('theme-is-val');
-      if (isv) isv.textContent = t.icons.stroke;
+      if (isv) isv.textContent = icons.stroke != null ? icons.stroke : 1.8;
 
       var roles = document.getElementById('theme-roles');
       if (roles) {

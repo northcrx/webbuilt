@@ -1,0 +1,51 @@
+/* Generates AndroidManifest.xml for the exported project. */
+(function () {
+  var S = window.Studio = window.Studio || {};
+  S.exporters = S.exporters || {};
+  var android = S.exporters.android = S.exporters.android || {};
+
+  var ManifestGenerator = android.ManifestGenerator = {
+    generateManifestXml: function (packageName, appName, needsInternet) {
+      packageName = packageName || 'com.example.droidlab';
+      appName = appName || 'Droid Lab';
+
+      var lines = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
+        '    xmlns:tools="http://schemas.android.com/tools">',
+        '',
+        '    <!-- Permissions -->',
+        '    <uses-permission android:name="android.permission.INTERNET" />',
+        '    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+        '',
+        '    <application',
+        '        android:allowBackup="true"',
+        '        android:dataExtractionRules="@xml/data_extraction_rules"',
+        '        android:fullBackupContent="@xml/backup_rules"',
+        '        android:icon="@mipmap/ic_launcher"',
+        '        android:label="@string/app_name"',
+        '        android:roundIcon="@mipmap/ic_launcher_round"',
+        '        android:supportsRtl="true"',
+        '        android:theme="@style/Theme.DroidLab"',
+        '        tools:targetApi="34">',
+        '',
+        '        <activity',
+        '            android:name=".MainActivity"',
+        '            android:exported="true"',
+        '            android:label="@string/app_name"',
+        '            android:theme="@style/Theme.DroidLab"',
+        '            android:windowSoftInputMode="adjustResize">',
+        '            <intent-filter>',
+        '                <action android:name="android.intent.action.MAIN" />',
+        '                <category android:name="android.intent.category.LAUNCHER" />',
+        '            </intent-filter>',
+        '        </activity>',
+        '    </application>',
+        '',
+        '</manifest>'
+      ];
+
+      return lines.join('\n');
+    }
+  };
+})();

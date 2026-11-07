@@ -34,7 +34,7 @@
        pages stay in sync for undo, save and export. */
     syncActivePage: function () {
       var d = this.data;
-      if (!d || d.target !== 'app' || !Array.isArray(d.pages) || !d.pages.length) return;
+      if (!d || !Array.isArray(d.pages) || !d.pages.length) return;
       var page = this.pageById(d.activePageId) || d.pages[0];
       if (!page) return;
       d.activePageId = page.id;
@@ -59,7 +59,7 @@
 
     switchPage: function (id, opts) {
       var d = this.data;
-      if (!d || d.target !== 'app' || !id) return false;
+      if (!d || !id) return false;
       if (d.activePageId === id) return false;
       var page = this.pageById(id);
       if (!page) return false;
@@ -69,6 +69,38 @@
       d.screen = page.screen;
       d.selectedId = null;
       if (S.iconTarget) S.iconTarget = null;
+
+      // Keep bottom navigation synchronized and deduplicated on page switch
+      var pIndex = this.pageIndex(page.id);
+      if (pIndex > -1 && d.target === 'app') {
+        var navStyle = null;
+        for (var pi = 0; pi < (d.pages || []).length && !navStyle; pi++) {
+          (d.pages[pi].screen || []).forEach(function (b) {
+            if (!navStyle && (b.type === 'bottomnav' || (b.type && b.type.indexOf('bottomnav') === 0))) {
+              navStyle = (b.props && b.props.style) || 'material';
+            }
+          });
+        }
+        navStyle = navStyle || 'material';
+
+        var seenNav = false;
+        var cleanScreen = [];
+        (d.screen || []).forEach(function (b) {
+          var isNav = b.type === 'bottomnav' || (b.type && b.type.indexOf('bottomnav') === 0);
+          if (isNav) {
+            if (seenNav) return; // strip duplicate bottom nav
+            seenNav = true;
+            b.type = 'bottomnav';
+            b.props = b.props || {};
+            b.props.active = pIndex;
+            b.props.style = navStyle;
+          }
+          cleanScreen.push(b);
+        });
+        d.screen = cleanScreen;
+        page.screen = cleanScreen;
+      }
+
       this.commit('page:open');
       if (!(opts && opts.silent) && S.App) {
         S.App.refresh('all');
@@ -83,36 +115,103 @@
       return page ? this.switchPage(page.id, opts) : false;
     },
 
-    addPage: function () {
+    addPage: function (name, opts) {
+      opts = opts || {};
       var d = this.data;
       this.syncActivePage();
       if (!Array.isArray(d.pages)) d.pages = [];
-
-      var source = null;
-      d.pages.forEach(function (page) {
-        if (source) return;
-        (page.screen || []).forEach(function (block) {
-          if (!source && block.type === 'bottomnav') source = block;
-        });
-      });
-
+      var currentBlocks = Array.isArray(d.screen) ? d.screen : [];
       var index = d.pages.length;
-      var page = { id: S.util.uid(), name: 'Screen ' + (index + 1), icon: 'msr:apps', screen: [] };
-      if (source) {
-        var nav = S.makeBlock('bottomnav', {
-          items: source.props.items,
-          active: index,
-          style: source.props.style || 'material'
+      var pageName = (typeof name === 'string' && name.trim()) ? name.trim() : ('Screen ' + (index + 1));
+      var pageIcon = opts.icon || (d.target === 'web' ? 'msr:web' : 'msr:apps');
+      var newScreen = [];
+      if (opts.blank) {
+        newScreen = [];
+      } else if (Array.isArray(opts.screen) && opts.screen.length) {
+        newScreen = regenIds(normScreen(opts.screen, {}));
+      } else if (Array.isArray(opts.screen)) {
+        newScreen = [];
+      } else if (currentBlocks.length) {
+        var headerTypes = ['appbar', 'searchheader', 'profilebar', 'storeheader', 'capsuleheader', 'tabs', 'tabspill', 'tabssegmented', 'tabsbadge', 'tabsicon', 'webnav', 'exthead'];
+        var footerTypes = ['bottomnav', 'bottomnavfloating', 'bottomnavfab', 'bottomnavexpanding', 'bottomnavglass', 'miniplayer', 'webfooter', 'extfoot'];
+        var persistentBlocks = [];
+        currentBlocks.forEach(function (b) {
+          if (headerTypes.indexOf(b.type) > -1 || footerTypes.indexOf(b.type) > -1) {
+            var clone = JSON.parse(JSON.stringify(b));
+            clone.id = S.util.uid();
+            if (clone.type === 'tabs' && typeof opts.tabIndex === 'number') {
+              clone.props.active = opts.tabIndex;
+            }
+            if (clone.type === 'bottomnav') {
+              clone.props.active = index;
+            }
+            if (clone.props) {
+              if (clone.type === 'appbar' || clone.type === 'searchheader' || clone.type === 'profilebar' || clone.type === 'storeheader' || clone.type === 'capsuleheader') {
+                clone.props.title = pageName;
+              }
+              if (clone.type === 'tabs' && typeof opts.tabIndex !== 'number') {
+                clone.props.active = 0;
+              }
+            }
+            persistentBlocks.push(clone);
+          }
         });
-        if (nav) page.screen.push(nav);
+        var headers = persistentBlocks.filter(function (b) { return headerTypes.indexOf(b.type) > -1; });
+        var footers = persistentBlocks.filter(function (b) { return footerTypes.indexOf(b.type) > -1; });
+        var content = [];
+        if (d.target === 'web') {
+          if (S.makeBlock) {
+            var webHero = S.makeBlock('webhero', {
+              kicker: pageName + ' · 2026',
+              title: pageName,
+              text: 'Explore our curated ' + pageName.toLowerCase() + ' collection and featured stories.',
+              cta: 'Shop ' + pageName,
+              cta2: 'Learn more'
+            });
+            if (webHero) content.push(webHero);
+          }
+        } else if (d.target === 'ext') {
+          if (S.makeBlock) {
+            var extCard = S.makeBlock('extnotes', {
+              title: pageName,
+              body: 'Quick notes and tools for ' + pageName + ' screen.'
+            });
+            if (extCard) content.push(extCard);
+          }
+        } else {
+          if (S.makeBlock) {
+            var sec = S.makeBlock('section', {
+              title: pageName,
+              action: 'See all'
+            });
+            if (sec) content.push(sec);
+            var card = S.makeBlock('card', {
+              title: pageName + ' Overview',
+              text: 'Add cards, lists, and components for ' + pageName.toLowerCase() + ' here.'
+            });
+            if (card) content.push(card);
+          }
+        }
+        newScreen = headers.concat(content).concat(footers);
       }
+      var page = {
+        id: S.util.uid(),
+        name: pageName,
+        icon: pageIcon,
+        hiddenFromNav: !!opts.hiddenFromNav,
+        screen: newScreen
+      };
       d.pages.push(page);
       d.activePageId = page.id;
       d.screen = page.screen;
       d.selectedId = null;
+      if (S.iconTarget) S.iconTarget = null;
       this.syncNavFromPages();
       this.commit('page:add');
-      if (S.App) S.App.refresh('all');
+      if (S.App) {
+        S.App.refresh('all');
+        S.App.requestFit();
+      }
       return page;
     },
 
@@ -176,6 +275,171 @@
       this.commit('page:name:' + id);
     },
 
+        combinePages: function (srcId, targetId, opts) {
+      opts = opts || {};
+      var d = this.data;
+      if (!d || !Array.isArray(d.pages) || srcId === targetId) return false;
+      var src = this.pageById(srcId);
+      var target = this.pageById(targetId);
+      if (!src || !target) return false;
+
+      this.syncActivePage();
+      target.screen = target.screen || [];
+
+      // Clone blocks from src with fresh IDs so they never conflict
+      var cloneBlocks = JSON.parse(JSON.stringify(src.screen || []));
+      regenIds(cloneBlocks);
+
+      // Append blocks to target screen
+      target.screen = target.screen.concat(cloneBlocks);
+
+      // Mark source as sub-page or remove if requested
+      if (opts.removeSource) {
+        var sIdx = this.pageIndex(srcId);
+        if (sIdx > -1) d.pages.splice(sIdx, 1);
+      } else {
+        src.hiddenFromNav = true;
+      }
+
+      d.activePageId = target.id;
+      d.screen = target.screen;
+      d.selectedId = null;
+
+      this.syncNavFromPages();
+      this.commit('page:combine');
+      this.saveNow();
+      if (S.App) S.App.refresh('all');
+      return true;
+    },
+
+    deletePage: function (id) {
+      var d = this.data;
+      if (!d || !Array.isArray(d.pages)) return false;
+      var idx = this.pageIndex(id);
+      if (idx < 0) return false;
+      this.syncActivePage();
+
+      d.pages.splice(idx, 1);
+
+      // If all pages were removed, ensure at least 1 blank screen exists
+      if (d.pages.length === 0) {
+        var blank = {
+          id: S.util.uid(),
+          name: 'Screen 1',
+          icon: 'msr:smartphone',
+          screen: [],
+          hiddenFromNav: false
+        };
+        d.pages.push(blank);
+        d.activePageId = blank.id;
+        d.screen = blank.screen;
+      } else if (d.activePageId === id) {
+        // Switch to the adjacent page
+        var nextIdx = Math.min(idx, d.pages.length - 1);
+        d.activePageId = d.pages[nextIdx].id;
+        d.screen = d.pages[nextIdx].screen || [];
+      } else {
+        var curr = this.pageById(d.activePageId) || d.pages[0];
+        if (curr) {
+          d.activePageId = curr.id;
+          d.screen = curr.screen || [];
+        }
+      }
+
+      d.selectedId = null;
+      this.syncNavFromPages();
+      this.commit('page:delete');
+      this.saveNow();
+      if (S.App) S.App.refresh('all');
+      return true;
+    },
+
+    startBlank: function (target) {
+      target = target || 'app';
+      var d = this.data;
+      var targetMeta = (S.targets && S.targets[target]) ? S.targets[target] : { device: { width: 390, height: 844, statusBar: true, gestureBar: true } };
+      var device = Object.assign({}, targetMeta.device);
+      var preset = S.matchDevice ? S.matchDevice(target, device) : null;
+      device.preset = preset ? preset.id : null;
+
+      var blankPage = {
+        id: S.util.uid(),
+        name: 'Screen 1',
+        icon: 'msr:smartphone',
+        screen: [],
+        hiddenFromNav: false
+      };
+
+      this.data = {
+        version: 2,
+        target: target,
+        device: device,
+        screen: [],
+        pages: target === 'app' ? [blankPage] : [],
+        activePageId: target === 'app' ? blankPage.id : null,
+        selectedId: null,
+        stash: {},
+        theme: Object.assign({
+          dark: false,
+          primary: '#6750a4',
+          accent: '#7c4dff',
+          radius: 16,
+          density: 'normal',
+          fonts: { ui: 'Inter', display: 'Plus Jakarta Sans' },
+          type: { size: 15, weight: 400, spacing: 0 },
+          icons: { weight: 400, fill: 0, stroke: 1.8 }
+        }, S.baseTheme ? S.baseTheme() : {}),
+        ui: S.defaultUI ? S.defaultUI() : {},
+        compare: { on: false, fonts: ['Inter', 'Plus Jakarta Sans', 'DM Sans'] }
+      };
+
+      this.history = [this.snapshot()];
+      this.pointer = 0;
+      this.lastKey = null;
+      this.saveNow();
+      if (S.App) {
+        S.App.target = target;
+        S.App.refresh('all');
+      }
+      return this.data;
+    },
+
+    duplicatePage: function (id) {
+      var d = this.data;
+      var src = this.pageById(id) || this.pageById(d.activePageId);
+      if (!src) return null;
+      this.syncActivePage();
+      var cloneScreen = JSON.parse(JSON.stringify(src.screen || []));
+      regenIds(cloneScreen);
+      var newName = uniquePageName(d.pages, src.name + ' Copy');
+      var newPage = {
+        id: S.util.uid(),
+        name: newName,
+        icon: src.icon || 'msr:apps',
+        screen: cloneScreen,
+        hiddenFromNav: !!src.hiddenFromNav
+      };
+      d.pages.push(newPage);
+      d.activePageId = newPage.id;
+      d.screen = newPage.screen;
+      d.selectedId = null;
+      this.syncNavFromPages();
+      this.commit('page:duplicate');
+      if (S.App) S.App.refresh('all');
+      return newPage;
+    },
+
+    togglePageHidden: function (id) {
+      var page = this.pageById(id);
+      if (!page) return false;
+      this.syncActivePage();
+      page.hiddenFromNav = !page.hiddenFromNav;
+      this.syncNavFromPages();
+      this.commit('page:toggleNav');
+      if (S.App) S.App.refresh('all');
+      return true;
+    },
+
     setPageIcon: function (id, icon) {
       var page = this.pageById(id);
       if (!page || !icon) return;
@@ -188,12 +452,16 @@
        onto every screen's navigation instead of only the selected copy. */
     syncNavStyle: function (style) {
       var d = this.data;
-      if (!d || d.target !== 'app') return;
+      if (!d) return;
       this.syncActivePage();
       var value = style || 'material';
       (d.pages || []).forEach(function (page) {
         (page.screen || []).forEach(function (block) {
-          if (block.type === 'bottomnav') block.props.style = value;
+          if (block.type === 'bottomnav' || (block.type && block.type.indexOf('bottomnav') === 0)) {
+            block.type = 'bottomnav';
+            block.props = block.props || {};
+            block.props.style = value;
+          }
         });
       });
     },
@@ -209,12 +477,12 @@
        renames and icon changes. */
     syncPagesFromNav: function () {
       var d = this.data;
-      if (!d || d.target !== 'app') return;
+      if (!d) return;
       var source = null;
       var pages = d.pages || [];
       for (var i = 0; i < pages.length && !source; i++) {
         (pages[i].screen || []).forEach(function (block) {
-          if (!source && block.type === 'bottomnav') source = block;
+          if (!source && (block.type === 'bottomnav' || (block.type && block.type.indexOf('bottomnav') === 0))) source = block;
         });
       }
       if (!source) return;
@@ -310,7 +578,7 @@
 
       /* Restore the multi-screen model alongside the active screen. The active
          page points at data.screen so every block operation keeps working. */
-      if (this.data.target === 'app' && Array.isArray(parsed.pages) && parsed.pages.length) {
+      if (Array.isArray(parsed.pages) && parsed.pages.length) {
         this.data.pages = parsed.pages;
         this.data.activePageId = parsed.activePageId || parsed.pages[0].id;
         var page = this.pageById(this.data.activePageId) || parsed.pages[0];
@@ -360,6 +628,131 @@
       this.pointer = 0;
       this.lastKey = null;
       this.saveNow();
+    },
+
+    /* Replace the whole project with a normalised import. The previous
+       project stays in history so Ctrl+Z can bring it back. */
+    loadProject: function (raw) {
+      var next = normalize(raw);
+      if (!next) return false;
+      this.syncActivePage();
+      for (var k in this.data) {
+        if (this.data.hasOwnProperty(k) && !next.hasOwnProperty(k)) {
+          delete this.data[k];
+        }
+      }
+      Object.assign(this.data, next);
+      this.data.selectedId = null;
+      if (S.iconTarget) S.iconTarget = null;
+      this.syncActivePage();
+      syncNavFor(this.data);
+      this.lastKey = null;
+      this.commit('project:load');
+      this.saveNow();
+      return true;
+    },
+
+    /* Replace the current page or canvas screen with imported blocks. */
+    replaceCurrentPage: function (raw) {
+      var d = this.data;
+      if (!d || !raw) return false;
+      var blocks = raw.screen || raw.blocks || [];
+      if (!Array.isArray(blocks) && Array.isArray(raw)) blocks = raw;
+      if (!Array.isArray(blocks)) return false;
+
+      this.syncActivePage();
+      var screen = regenIds(normScreen(blocks, {}));
+      d.screen = screen;
+      d.selectedId = null;
+      if (S.iconTarget) S.iconTarget = null;
+
+      var name = raw.name || (raw.project && raw.project.name) || 'Page';
+      var icon = raw.icon || 'msr:apps';
+
+      if (d.target === 'app') {
+        if (!Array.isArray(d.pages) || !d.pages.length) {
+          d.pages = [{
+            id: S.util.uid(),
+            name: name,
+            icon: icon,
+            screen: d.screen
+          }];
+          d.activePageId = d.pages[0].id;
+        } else {
+          var currPage = this.pageById(d.activePageId) || d.pages[0];
+          if (currPage) {
+            currPage.name = name;
+            if (raw.icon) currPage.icon = icon;
+            currPage.screen = d.screen;
+          }
+        }
+      }
+
+      if (raw.theme) {
+        if (raw.theme.primary) d.theme.primary = raw.theme.primary;
+        if (raw.theme.dark != null) d.theme.dark = !!raw.theme.dark;
+        else if (raw.theme.mode != null) d.theme.dark = raw.theme.mode === 'dark';
+        if (raw.theme.radius != null) d.theme.radius = Number(raw.theme.radius) || 18;
+        if (raw.theme.fonts) d.theme.fonts = Object.assign({}, d.theme.fonts, raw.theme.fonts);
+        if (raw.theme.type) d.theme.type = Object.assign({}, d.theme.type, raw.theme.type);
+        if (raw.theme.icons) d.theme.icons = Object.assign({}, d.theme.icons, raw.theme.icons);
+      }
+
+      if (raw.device) {
+        applyImportedDevice(d, raw.device);
+      }
+
+      if (d.target === 'app') {
+        this.syncNavFromPages();
+      }
+
+      this.commit('page:import:replace');
+      this.saveNow();
+      return true;
+    },
+
+    /* Append an exported app page to the current project. */
+    importPage: function (raw) {
+      var d = this.data;
+      if (!d || !raw) return false;
+      var blocks = raw.screen || raw.blocks || [];
+      if (!Array.isArray(blocks) && Array.isArray(raw)) blocks = raw;
+      if (!Array.isArray(blocks)) return false;
+      this.syncActivePage();
+      if (!Array.isArray(d.pages)) d.pages = [];
+
+      var screen = regenIds(normScreen(blocks, {}));
+      var page = {
+        id: S.util.uid(),
+        name: uniquePageName(d.pages, raw.name || 'Imported page'),
+        icon: typeof raw.icon === 'string' && raw.icon.trim() ? raw.icon.trim() : 'msr:apps',
+        screen: screen
+      };
+      d.pages.push(page);
+      d.activePageId = page.id;
+      d.screen = page.screen;
+      d.selectedId = null;
+      if (S.iconTarget) S.iconTarget = null;
+      this.syncNavFromPages();
+      this.commit('page:import');
+      this.saveNow();
+      return page;
+    },
+
+    /* Replace the current website / extension canvas with an exported page. */
+    replaceCanvasScreen: function (raw) {
+      var d = this.data;
+      if (!d || !raw || !Array.isArray(raw.screen)) return false;
+      var target = raw.target === 'web' || raw.target === 'ext' ? raw.target : 'app';
+      if (target !== d.target) return false;
+      this.syncActivePage();
+      d.screen = regenIds(normScreen(raw.screen, {}));
+      d.selectedId = null;
+      if (S.iconTarget) S.iconTarget = null;
+      applyImportedDevice(d, raw.device);
+      this.commit('page:import');
+      this.saveNow();
+      return true;
     }
   };
 
@@ -477,11 +870,13 @@
       var id = page.id;
       if (!id || typeof id !== 'string' || used[id]) id = S.util.uid();
       used[id] = true;
+      var blocks = page.screen || page.blocks || [];
       out.push({
         id: id,
         name: String(page.name == null ? '' : page.name).trim() || ('Screen ' + (index + 1)),
         icon: typeof page.icon === 'string' && page.icon.trim() ? page.icon.trim() : 'msr:apps',
-        screen: normScreen(page.screen, seen)
+        hiddenFromNav: !!page.hiddenFromNav,
+        screen: normScreen(blocks, seen)
       });
     });
     return out;
@@ -489,9 +884,18 @@
 
   /* Mirror page names and icons into every bottom navigation block. Defined
      outside the state object so normalisation can call it before init. */
+  function isBottomNavType(type) {
+    return type === 'bottomnav' || (typeof type === 'string' && type.indexOf('bottomnav') === 0);
+  }
+
   function syncNavFor(d) {
     if (!d || !Array.isArray(d.pages) || !d.pages.length) return;
-    var items = d.pages.map(function (page) {
+    var navPages = d.pages.filter(function (page) {
+      return !page.hiddenFromNav;
+    });
+    if (!navPages.length) navPages = [d.pages[0]];
+
+    var items = navPages.map(function (page) {
       var icon = S.iconName ? S.iconName(page.icon || 'msr:apps') : (page.icon || 'apps');
       return (icon || 'apps') + ':' + String(page.name || 'Screen').replace(/[\r\n]+/g, ' ');
     }).join('\n');
@@ -501,31 +905,92 @@
     var template = null;
     d.pages.forEach(function (page) {
       (page.screen || []).forEach(function (block) {
-        if (!template && block.type === 'bottomnav') template = block;
+        if (!template && isBottomNavType(block.type)) template = block;
       });
     });
-    var navStyle = (template && template.props.style) || 'material';
+    var navStyle = (template && template.props && template.props.style) || 'material';
+    if (template && template.type === 'bottomnavfloating') navStyle = 'floating';
+    else if (template && template.type === 'bottomnavfab') navStyle = 'center-fab';
+    else if (template && template.type === 'bottomnavexpanding') navStyle = 'expanding-pill';
+    else if (template && template.type === 'bottomnavglass') navStyle = 'glass';
 
     d.pages.forEach(function (page, index) {
       page.screen = page.screen || [];
-      var navs = page.screen.filter(function (block) { return block.type === 'bottomnav'; });
-      if (!navs.length && template && S.makeBlock) {
+      // Deduplicate: remove extra bottom navs from the screen array
+      var seenNav = false;
+      var cleanScreen = [];
+      var primaryNav = null;
+      page.screen.forEach(function (block) {
+        if (isBottomNavType(block.type)) {
+          if (seenNav) return; // strip duplicate
+          seenNav = true;
+          block.type = 'bottomnav';
+          primaryNav = block;
+        }
+        cleanScreen.push(block);
+      });
+      page.screen = cleanScreen;
+
+      if (!primaryNav && template && S.makeBlock) {
         var clone = S.makeBlock('bottomnav', {
           items: items,
-          active: index,
+          active: (navPages.indexOf(page) > -1 ? navPages.indexOf(page) : 0),
           style: navStyle
         });
         if (clone) {
           page.screen.push(clone);
-          navs = [clone];
+          primaryNav = clone;
         }
       }
-      navs.forEach(function (block) {
-        block.props.items = items;
-        block.props.active = index;
-        block.props.style = navStyle;
-      });
+      if (primaryNav) {
+        primaryNav.props = primaryNav.props || {};
+        primaryNav.props.items = items;
+        var navIdx = navPages.indexOf(page);
+        primaryNav.props.active = navIdx > -1 ? navIdx : -1;
+        primaryNav.props.style = navStyle;
+      }
     });
+
+    // Make sure d.screen (active screen) stays in sync with deduplicated page
+    var curr = d.pages.filter(function (p) { return p.id === d.activePageId; })[0];
+    if (curr) d.screen = curr.screen;
+  }
+
+  /* Imported pages start with fresh ids so they never collide with the
+     project they are being added to. */
+  function regenIds(list) {
+    (list || []).forEach(function (block) {
+      block.id = S.util.uid();
+      regenIds(block.children);
+    });
+    return list;
+  }
+
+  function uniquePageName(pages, name) {
+    var base = String(name || 'Imported page').replace(/\s+/g, ' ').trim() || 'Imported page';
+    var used = {};
+    (pages || []).forEach(function (page) {
+      used[String(page.name || '').toLowerCase()] = true;
+    });
+    if (!used[base.toLowerCase()]) return base;
+    var n = 2;
+    while (used[(base + ' ' + n).toLowerCase()]) n++;
+    return base + ' ' + n;
+  }
+
+  function applyImportedDevice(d, raw) {
+    if (!d || !raw || typeof raw !== 'object') return;
+    var meta = S.targets[d.target] || S.targets.app;
+    var device = Object.assign({}, d.device || meta.device, raw);
+    var preset = S.matchDevice(d.target, device);
+    device.width = Number(device.width) || meta.device.width;
+    device.height = Number(device.height) || meta.device.height;
+    device.preset = preset ? preset.id : null;
+    if (d.target === 'app') {
+      if (typeof raw.statusBar === 'boolean') device.statusBar = raw.statusBar;
+      if (typeof raw.gestureBar === 'boolean') device.gestureBar = raw.gestureBar;
+    }
+    d.device = device;
   }
 
   /* Normalise one block and guarantee a unique id. */
@@ -558,7 +1023,33 @@
   }
 
   function normalize(saved) {
-    if (!saved || !Array.isArray(saved.screen)) return null;
+    if (!saved || typeof saved !== 'object') return null;
+
+    if (Array.isArray(saved)) {
+      saved = { screen: saved };
+    }
+
+    if (Array.isArray(saved.screens) && (!Array.isArray(saved.pages) || !saved.pages.length)) {
+      saved.pages = saved.screens.map(function (s, idx) {
+        return {
+          id: s.id || S.util.uid(),
+          name: s.name || ('Screen ' + (idx + 1)),
+          icon: s.icon || 'msr:apps',
+          screen: s.blocks || s.screen || []
+        };
+      });
+    }
+
+    if (Array.isArray(saved.pages) && saved.pages.length && (!Array.isArray(saved.screen) || !saved.screen.length)) {
+      var actP = saved.activePageId ? saved.pages.filter(function (p) { return p.id === saved.activePageId; })[0] : null;
+      saved.screen = (actP || saved.pages[0]).screen || (actP || saved.pages[0]).blocks || [];
+    }
+
+    if (!Array.isArray(saved.screen)) {
+      if (Array.isArray(saved.blocks)) saved.screen = saved.blocks;
+      else if (saved.page && Array.isArray(saved.page.screen)) saved.screen = saved.page.screen;
+      else return null;
+    }
     var base = S.defaultState();
     var seen = {};
 
@@ -572,6 +1063,9 @@
     base.device = device;
 
     var theme = Object.assign({}, base.theme, saved.theme || {});
+    if (saved.theme && saved.theme.mode != null) {
+      theme.dark = saved.theme.mode === 'dark';
+    }
     theme.fonts = Object.assign({}, base.theme.fonts, (saved.theme || {}).fonts || {});
     theme.type = Object.assign({}, base.theme.type, (saved.theme || {}).type || {});
     theme.icons = Object.assign({}, base.theme.icons, (saved.theme || {}).icons || {});
@@ -582,7 +1076,7 @@
     /* Restore the multi-screen model. Saved pages win, otherwise the single
        saved screen becomes the first page and tabs are derived from any bottom
        navigation block it contains. */
-    if (base.target === 'app' && Array.isArray(saved.pages) && saved.pages.length) {
+    if (Array.isArray(saved.pages) && saved.pages.length) {
       base.pages = normPages(saved.pages, seen);
       base.activePageId = saved.activePageId || base.pages[0].id;
       var activePage = base.pages.filter(function (p) { return p.id === base.activePageId; })[0] || base.pages[0];
@@ -590,7 +1084,7 @@
       base.screen = activePage.screen;
     } else {
       base.screen = normScreen(saved.screen, seen);
-      if (base.target === 'app') {
+      if (base.target) {
         var made = S.pagesFromScreen(base.screen);
         base.pages = made.pages;
         base.activePageId = made.activePageId;

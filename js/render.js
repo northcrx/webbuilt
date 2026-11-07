@@ -170,7 +170,16 @@
       }).map(function (item) { return self.exportBlock(item); }).join('\n');
       var dock = screen.filter(function (item) {
         return !item.hidden && self.isDockBlock(item);
-      }).map(function (item) { return self.exportBlock(item); }).join('\n');
+      });
+      dock.sort(function (a, b) {
+        var order = { miniplayer: 0 };
+        if (a.type.indexOf('bottomnav') === 0) return 1;
+        if (b.type.indexOf('bottomnav') === 0) return -1;
+        var scoreA = order[a.type] !== undefined ? order[a.type] : 2;
+        var scoreB = order[b.type] !== undefined ? order[b.type] : 2;
+        return scoreA - scoreB;
+      });
+      var dock = dock.map(function (item) { return self.exportBlock(item); }).join('\n');
 
       if (!flow) flow = '<div class="screen-empty"><strong>Empty screen</strong></div>';
 
@@ -296,15 +305,503 @@
         guideMarkup +
         chipsMarkup +
         '<div class="ui-search-body"><div class="ui-search-results" aria-live="polite"></div></div>' +
+        '</div>' +
+        this.playerModalMarkup() +
+        this.navPromptMarkup();
+    },
+
+    sleepTimerClockMarkup: function (curTimer, isDedicated) {
+      curTimer = curTimer || '30m';
+      var customMin = parseInt(curTimer, 10);
+      var timerMap = {
+        '15m': { min: 15, deg: 90, digital: '15:00', lbl: 'MINS', sub: 'Pauses audio in 15 mins' },
+        '30m': { min: 30, deg: 180, digital: '30:00', lbl: 'MINS', sub: 'Pauses audio in 30 mins' },
+        '45m': { min: 45, deg: 270, digital: '45:00', lbl: 'MINS', sub: 'Pauses audio in 45 mins' },
+        '60m': { min: 60, deg: 360, digital: '60:00', lbl: '1 HR', sub: 'Pauses audio in 1 hour' },
+        'track': { min: 0, deg: 30, digital: 'END', lbl: 'TRACK', sub: 'Pauses at end of track' },
+        'off': { min: 0, deg: 0, digital: 'OFF', lbl: 'TIMER', sub: 'Audio plays continuously' }
+      };
+      var tInfo;
+      if (timerMap[curTimer]) {
+        tInfo = timerMap[curTimer];
+      } else if (!isNaN(customMin) && customMin > 0) {
+        var cDeg = Math.round((customMin % 60) * 6);
+        if (cDeg === 0) cDeg = 360;
+        var minStr = customMin < 10 ? '0' + customMin : '' + customMin;
+        tInfo = {
+          min: customMin,
+          deg: cDeg,
+          digital: minStr + ':00',
+          lbl: customMin >= 60 ? (Math.floor(customMin / 60) + 'h ' + (customMin % 60 ? (customMin % 60) + 'm' : '')) : 'MINS',
+          sub: 'Pauses audio in ' + customMin + ' mins'
+        };
+      } else {
+        tInfo = timerMap['30m'];
+      }
+      var deg = tInfo.deg;
+      var rad = (deg - 90) * Math.PI / 180;
+      var cx = 75, cy = 75, r = 52;
+      var hx = Math.round(cx + (curTimer === 'off' ? 0 : r * Math.cos(rad)));
+      var hy = Math.round(cy + (curTimer === 'off' ? 0 : r * Math.sin(rad)));
+      var circ = 2 * Math.PI * r;
+      var pct = curTimer === 'off' ? 0 : (curTimer === 'track' ? 0.08 : (tInfo.min / 60));
+      var arcOffset = (circ * (1 - pct)).toFixed(1);
+
+      var ticks = '';
+      for (var i = 0; i < 12; i++) {
+        var ta = (i * 30 - 90) * Math.PI / 180;
+        var isMajor = i % 3 === 0;
+        var tr1 = r + 4;
+        var tr2 = r + (isMajor ? 12 : 8);
+        var x1 = (cx + tr1 * Math.cos(ta)).toFixed(1);
+        var y1 = (cy + tr1 * Math.sin(ta)).toFixed(1);
+        var x2 = (cx + tr2 * Math.cos(ta)).toFixed(1);
+        var y2 = (cy + tr2 * Math.sin(ta)).toFixed(1);
+        ticks += '<line class="mp-clk-tick' + (isMajor ? ' major' : '') + '" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"></line>';
+      }
+
+      var currentMinVal = tInfo.min || 30;
+
+      return '<div class="mp-mod-bar mp-mod-sleep-bar' + (isDedicated ? ' is-dedicated-sleep' : '') + '">' +
+        '<div class="mp-mod-head">' +
+        '<div class="mp-mod-head-left"><span class="mi">schedule</span><span>Sleep Timer: <strong class="mp-active-timer-val">' + esc(curTimer) + '</strong></span></div>' +
+        '<span class="mp-timer-sub-tag">' + esc(tInfo.sub) + '</span>' +
+        '</div>' +
+        '<div class="mp-clock-picker">' +
+        '<div class="mp-clock-dial" data-timer="' + esc(curTimer) + '">' +
+        '<svg class="mp-clock-svg" viewBox="0 0 150 150">' +
+        '<circle class="mp-clock-bg" cx="' + cx + '" cy="' + cy + '" r="' + (r + 14) + '"></circle>' +
+        '<circle class="mp-clock-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '"></circle>' +
+        '<circle class="mp-clock-arc' + (curTimer !== 'off' ? ' is-active' : '') + '" cx="' + cx + '" cy="' + cy + '" r="' + r + '" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + arcOffset + '"></circle>' +
+        ticks +
+        (curTimer !== 'off' ? '<line class="mp-clock-hand" x1="' + cx + '" y1="' + cy + '" x2="' + hx + '" y2="' + hy + '"></line>' +
+        '<circle class="mp-clock-pointer" cx="' + hx + '" cy="' + hy + '" r="' + 6.5 + '"></circle>' : '') +
+        '<circle class="mp-clock-pivot" cx="' + cx + '" cy="' + cy + '" r="' + 25 + '"></circle>' +
+        '</svg>' +
+        '<div class="mp-clock-center-readout">' +
+        '<span class="mp-clock-val">' + esc(tInfo.digital) + '</span>' +
+        '<span class="mp-clock-lbl">' + esc(tInfo.lbl) + '</span>' +
+        '</div>' +
+        '<button type="button" class="mp-clk-node node-15' + (curTimer === '15m' ? ' on' : '') + '" data-mp-timer="15m" title="15 mins">15m</button>' +
+        '<button type="button" class="mp-clk-node node-30' + (curTimer === '30m' ? ' on' : '') + '" data-mp-timer="30m" title="30 mins">30m</button>' +
+        '<button type="button" class="mp-clk-node node-45' + (curTimer === '45m' ? ' on' : '') + '" data-mp-timer="45m" title="45 mins">45m</button>' +
+        '<button type="button" class="mp-clk-node node-60' + (curTimer === '60m' ? ' on' : '') + '" data-mp-timer="60m" title="60 mins">60m</button>' +
+        '</div>' +
+        '</div>' +
+
+        // Custom Timing Builder (User can set any minute)
+        '<div class="mp-custom-builder">' +
+        '<div class="mp-custom-builder-head"><span>Set Custom Timing</span><small class="mp-custom-hint">Type any minutes or step</small></div>' +
+        '<div class="mp-custom-row">' +
+        '<button type="button" class="mp-stepper-btn" data-mp-timer-step="-5" title="Minus 5 minutes">-5m</button>' +
+        '<div class="mp-custom-input-box">' +
+        '<input type="number" class="mp-custom-input" min="1" max="360" value="' + currentMinVal + '" data-mp-custom-timer="1" aria-label="Custom timer minutes">' +
+        '<span>mins</span>' +
+        '</div>' +
+        '<button type="button" class="mp-stepper-btn" data-mp-timer-step="5" title="Plus 5 minutes">+5m</button>' +
+        '</div>' +
+        '<div class="mp-timer-add-chips">' +
+        '<button type="button" class="mp-timer-add-chip" data-mp-timer-add="5">+5 min</button>' +
+        '<button type="button" class="mp-timer-add-chip" data-mp-timer-add="15">+15 min</button>' +
+        '<button type="button" class="mp-timer-add-chip" data-mp-timer-add="30">+30 min</button>' +
+        '<button type="button" class="mp-timer-add-chip" data-mp-timer-add="60">+1 hour</button>' +
+        '</div>' +
+        '<div class="mp-timer-toggles">' +
+        '<label class="mp-toggle-row"><input type="checkbox" checked data-mp-opt="fade"><span><span class="mi">volume_down</span>Fade out audio gradually in last 60s</span></label>' +
+        '<label class="mp-toggle-row"><input type="checkbox" data-mp-opt="endtrack"><span><span class="mi">music_note</span>Pause at end of current track</span></label>' +
+        '</div>' +
+        '</div>' +
+
+        '<div class="mp-timer-actions">' +
+        '<button type="button" class="mp-timer-start-btn" data-mp-timer-start="1"><span class="mi">play_arrow</span><span>Start Sleep Timer (' + currentMinVal + 'm)</span></button>' +
+        '<button type="button" class="mp-timer-cancel-btn" data-mp-timer="off"><span class="mi">close</span><span>Cancel</span></button>' +
+        '</div>' +
+
+        '<div class="mp-mod-chips mp-timer-chips">' +
+        '<button type="button" class="mp-mod-chip' + (curTimer === 'off' ? ' on' : '') + '" data-mp-timer="off"><span class="mi">timer_off</span>Off</button>' +
+        '<button type="button" class="mp-mod-chip' + (curTimer === '15m' ? ' on' : '') + '" data-mp-timer="15m">15m</button>' +
+        '<button type="button" class="mp-mod-chip' + (curTimer === '30m' ? ' on' : '') + '" data-mp-timer="30m">30m</button>' +
+        '<button type="button" class="mp-mod-chip' + (curTimer === '45m' ? ' on' : '') + '" data-mp-timer="45m">45m</button>' +
+        '<button type="button" class="mp-mod-chip' + (curTimer === '60m' ? ' on' : '') + '" data-mp-timer="60m">60m</button>' +
+        '<button type="button" class="mp-mod-chip' + (curTimer === 'track' ? ' on' : '') + '" data-mp-timer="track"><span class="mi">skip_next</span>End</button>' +
+        '</div>' +
         '</div>';
     },
 
-    /* Blocks that live outside the scroll flow and stay pinned to the bottom
-       of the phone: the bottom navigation and a docked mini player. */
+    equalizerRackMarkup: function (props, playing, isDedicated) {
+      props = props || {};
+      var curEq = props.eqPreset || 'Bass Boost';
+      var presetCurves = {
+        'Flat': [0, 0, 0, 0, 0],
+        'Bass Boost': [7, 5, 1, 2, 3],
+        'Vocal': [-2, 1, 6, 4, 1],
+        'Electronic': [6, 4, 0, 3, 5],
+        'Rock': [5, 3, -1, 3, 6],
+        'Acoustic': [3, 2, 1, 4, 3],
+        'Studio Master': [2, 1, 0, 2, 2]
+      };
+      var bands = Array.isArray(props.eqBands) && props.eqBands.length === 5
+        ? props.eqBands
+        : (presetCurves[curEq] || presetCurves['Bass Boost']);
+
+      var freqs = ['60Hz', '230Hz', '910Hz', '3.6kHz', '14kHz'];
+      var bandLabels = ['Sub', 'Bass', 'Mid', 'Presence', 'Air'];
+
+      var pts = bands.map(function (db, idx) {
+        var x = 20 + idx * 55;
+        var clampedDb = Math.max(-12, Math.min(12, Number(db) || 0));
+        var y = Math.round(40 - (clampedDb / 12) * 28);
+        return { x: x, y: y, db: clampedDb };
+      });
+
+      var pathD = 'M ' + pts[0].x + ' ' + pts[0].y;
+      for (var i = 0; i < pts.length - 1; i++) {
+        var p0 = pts[i];
+        var p1 = pts[i + 1];
+        var mx = (p0.x + p1.x) / 2;
+        pathD += ' C ' + mx + ' ' + p0.y + ', ' + mx + ' ' + p1.y + ', ' + p1.x + ' ' + p1.y;
+      }
+      var areaD = pathD + ' L ' + pts[pts.length - 1].x + ' 76 L ' + pts[0].x + ' 76 Z';
+
+      var fadersHtml = bands.map(function (db, idx) {
+        var clampedDb = Math.max(-12, Math.min(12, Number(db) || 0));
+        var dbStr = (clampedDb > 0 ? '+' : '') + clampedDb + 'dB';
+        var pct = Math.round(((clampedDb + 12) / 24) * 100);
+        return '<div class="mp-eq-col mp-eq-band" data-eq-col="' + idx + '">' +
+          '<span class="mp-eq-db">' + dbStr + '</span>' +
+          '<div class="mp-eq-track mp-eq-fader" data-mp-eq-band="' + idx + '">' +
+          '<div class="mp-eq-zero-line"></div>' +
+          '<div class="mp-eq-fill" style="height:' + pct + '%"><span style="height:' + pct + '%"></span></div>' +
+          '<input type="range" class="mp-eq-range" min="-12" max="12" step="1" value="' + clampedDb + '" data-mp-eq-band="' + idx + '" aria-label="' + freqs[idx] + ' ' + bandLabels[idx] + '">' +
+          '<div class="mp-eq-thumb" style="bottom:' + pct + '%"></div>' +
+          '</div>' +
+          '<span class="mp-eq-hz mp-eq-lbl">' + freqs[idx] + '</span>' +
+          '<span class="mp-eq-subtag">' + bandLabels[idx] + '</span>' +
+          '</div>';
+      }).join('');
+
+      var presets = ['Flat', 'Bass Boost', 'Vocal', 'Electronic', 'Rock', 'Acoustic', 'Studio Master'];
+      var presetChips = presets.map(function (pName) {
+        var on = curEq === pName;
+        return '<button type="button" class="mp-mod-chip' + (on ? ' on' : '') + '" data-mp-eq="' + esc(pName) + '">' + esc(pName) + '</button>';
+      }).join('');
+
+      var rotaryFxHtml = isDedicated ? (
+        '<div class="mp-eq-fx-row">' +
+        '<div class="mp-eq-rotary-card">' +
+        '<div class="mp-eq-rotary-dial" data-mp-rotary="bass"><span class="mp-eq-rotary-val">+6dB</span></div>' +
+        '<span class="mp-eq-rotary-lbl">Bass Boost</span>' +
+        '<small class="mp-eq-rotary-sub">60Hz Punch</small>' +
+        '</div>' +
+        '<div class="mp-eq-rotary-card">' +
+        '<div class="mp-eq-rotary-dial" data-mp-rotary="surround"><span class="mp-eq-rotary-val">65%</span></div>' +
+        '<span class="mp-eq-rotary-lbl">3D Surround</span>' +
+        '<small class="mp-eq-rotary-sub">Virtualizer</small>' +
+        '</div>' +
+        '<div class="mp-eq-rotary-card">' +
+        '<div class="mp-eq-rotary-dial" data-mp-rotary="clarity"><span class="mp-eq-rotary-val">+3dB</span></div>' +
+        '<span class="mp-eq-rotary-lbl">Vocal Clarity</span>' +
+        '<small class="mp-eq-rotary-sub">Presence</small>' +
+        '</div>' +
+        '</div>'
+      ) : '';
+
+      return '<div class="mp-mod-bar mp-mod-eq-rack mp-rack-eq' + (isDedicated ? ' is-dedicated-eq' : '') + '">' +
+        '<div class="mp-mod-head">' +
+        '<div class="mp-mod-head-left">' +
+        '<span class="mi">equalizer</span>' +
+        '<span>Equalizer: <strong>' + esc(curEq) + '</strong></span>' +
+        '</div>' +
+        '<div class="mp-vu-mini-strip mp-vu-row">' +
+        '<div class="mp-vu-mini mp-vu-meter"><span class="mp-vu-tag mp-vu-lbl">CH-L</span><div class="mp-vu-track mp-vu-mini-bar"><div class="mp-vu-fill mp-vu-mini-fill' + (playing ? ' live' : '') + '" style="width:' + (playing ? '84%' : '16%') + ';height:' + (playing ? '84%' : '16%') + '"></div></div><small class="mp-vu-db">+4dB</small></div>' +
+        '<div class="mp-vu-mini mp-vu-meter"><span class="mp-vu-tag mp-vu-lbl">CH-R</span><div class="mp-vu-track mp-vu-mini-bar"><div class="mp-vu-fill mp-vu-mini-fill' + (playing ? ' live' : '') + '" style="width:' + (playing ? '78%' : '16%') + ';height:' + (playing ? '78%' : '16%') + '"></div></div><small class="mp-vu-db">+2dB</small></div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="mp-eq-curve-card">' +
+        '<svg class="mp-eq-curve-svg" viewBox="0 0 260 80">' +
+        '<defs>' +
+        '<linearGradient id="eqCurveGrad" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="var(--md-primary)" stop-opacity="0.32"></stop>' +
+        '<stop offset="100%" stop-color="var(--md-primary)" stop-opacity="0.0"></stop>' +
+        '</linearGradient>' +
+        '</defs>' +
+        '<line class="mp-eq-grid-line" x1="10" y1="12" x2="250" y2="12"></line>' +
+        '<line class="mp-eq-grid-line zero" x1="10" y1="40" x2="250" y2="40"></line>' +
+        '<line class="mp-eq-grid-line" x1="10" y1="68" x2="250" y2="68"></line>' +
+        '<text class="mp-eq-grid-txt" x="12" y="16">+12dB</text>' +
+        '<text class="mp-eq-grid-txt" x="12" y="44">0dB</text>' +
+        '<text class="mp-eq-grid-txt" x="12" y="72">-12dB</text>' +
+        '<path class="mp-eq-curve-area" d="' + areaD + '" fill="url(#eqCurveGrad)"></path>' +
+        '<path class="mp-eq-curve-stroke" d="' + pathD + '"></path>' +
+        pts.map(function (p) {
+          return '<circle class="mp-eq-curve-pt" cx="' + p.x + '" cy="' + p.y + '" r="3.5"></circle>';
+        }).join('') +
+        '</svg>' +
+        '</div>' +
+        '<div class="mp-eq-faders-grid mp-eq-bands">' + fadersHtml + '</div>' +
+        rotaryFxHtml +
+        '<div class="mp-mod-chips mp-eq-preset-chips">' + presetChips + '</div>' +
+        '</div>';
+    },
+
+    playerModalMarkup: function () {
+      var d = S.State.data;
+      var mpBlock = (d.screen || []).filter(function (it) {
+        return it.type === 'miniplayer' || it.type === 'musicplayer';
+      })[0];
+      var props = (mpBlock && mpBlock.props) || {};
+      var title = props.title || 'Midnight Drive';
+      var artist = props.artist || 'Nova Lane';
+      var album = props.album || 'Neon Hours';
+      var coverIcon = props.coverIcon || 'headphones';
+      var style = props.fullPlayerStyle || props.style || 'vinyl';
+      var progress = Number(props.progress) || 45;
+      var elapsed = props.elapsed || '1:48';
+      var duration = props.duration || '4:12';
+      var liked = props.liked !== false;
+      var playing = props.playing !== false;
+      var audioRoute = props.audioRoute || 'Phone Speaker';
+      var curEq = props.eqPreset || 'Bass Boost';
+      var curTimer = props.sleepTimer || '30m';
+
+      var artHtml = '';
+      var coverContent = props.coverImage
+        ? '<img src="' + esc(props.coverImage) + '" alt="Cover" class="mp-vinyl-img">'
+        : S.icon(coverIcon, 'mp-vinyl-icon');
+
+      if (style === 'vinyl') {
+        artHtml = '<div class="mp-vinyl-wrapper">' +
+          '<div class="mp-tonearm"><span class="mp-tonearm-head"></span></div>' +
+          '<div class="mp-vinyl-disc' + (playing ? ' spinning' : '') + '" data-ui-player-spin="1">' +
+          '<div class="mp-vinyl-grooves"></div>' +
+          '<div class="mp-vinyl-center">' + coverContent + '</div>' +
+          '</div></div>';
+      } else if (style === 'cassette') {
+        artHtml = '<div class="mp-cassette-shell" data-ui-player-spin="1">' +
+          '<div class="mp-cass-screw tl"></div><div class="mp-cass-screw tr"></div>' +
+          '<div class="mp-cass-screw bl"></div><div class="mp-cass-screw br"></div>' +
+          '<div class="mp-cass-label">' +
+          '<span class="mp-cass-side">SIDE A · CHROME · DOLBY B-NR</span>' +
+          '<strong class="mp-cass-title">' + esc(title) + '</strong>' +
+          '<span class="mp-cass-artist">' + esc(artist) + '</span>' +
+          '</div>' +
+          '<div class="mp-cass-window">' +
+          '<div class="mp-cass-spool left"><div class="mp-tape-roll' + (playing ? ' spinning' : '') + '"></div><div class="mp-hub' + (playing ? ' spinning' : '') + '"></div></div>' +
+          '<div class="mp-cass-counter"><span>042</span></div>' +
+          '<div class="mp-cass-spool right"><div class="mp-tape-roll thin' + (playing ? ' spinning' : '') + '"></div><div class="mp-hub' + (playing ? ' spinning' : '') + '"></div></div>' +
+          '</div>' +
+          '<div class="mp-cass-bottom"><span class="mp-guide"></span><span class="mp-head"></span><span class="mp-guide"></span></div>' +
+          '</div>';
+      } else if (style === 'glass') {
+        artHtml = '<div class="mp-glass-card' + (playing ? ' playing' : '') + '">' +
+          '<div class="mp-glass-aura"></div>' +
+          '<div class="mp-glass-ring' + (playing ? ' pulsing' : '') + '"></div>' +
+          '<div class="mp-glass-center">' + coverContent + '</div>' +
+          '</div>';
+      } else if (style === 'equalizer') {
+        artHtml = this.equalizerRackMarkup(props, playing, false);
+      } else if (style === 'lyrics') {
+        var waveBars = [24, 48, 72, 35, 90, 60, 40, 85, 95, 55, 30, 75, 45, 65, 80, 50];
+        var waveHtml = waveBars.map(function (h, i) {
+          var delay = (i * 0.08).toFixed(2);
+          return '<span class="mp-wave-bar' + (playing ? ' animated' : '') + '" style="height:' + h + '%;animation-delay:-' + delay + 's"></span>';
+        }).join('');
+        var rawLyrics = (props.lyricsText || 'Neon lights reflecting on the wet pavement\nDriving through the empty city midnight mist\nLost inside the echoes of the stereo\nOnly you and me beneath the starlight').split('\n').filter(Boolean);
+        var lyricsHtml = rawLyrics.map(function (line, idx) {
+          return '<p class="mp-lyric-line' + (idx === 1 ? ' active' : '') + '">' + esc(line.trim()) + '</p>';
+        }).join('');
+        artHtml = '<div class="mp-waveform">' + waveHtml + '</div>' +
+          '<div class="mp-lyrics-box" aria-label="Lyrics">' + lyricsHtml + '</div>';
+      } else {
+        var coverImg = props.coverImage
+          ? '<img src="' + esc(props.coverImage) + '" alt="Cover" class="mp-art-img">'
+          : S.icon(coverIcon, 'mp-glyph');
+        artHtml = '<div class="mp-art mp-art-' + style + '">' +
+          coverImg +
+          '<button type="button" class="mp-fav' + (liked ? ' on' : '') + '" data-ui-player-fav="1" aria-label="Favourite">' +
+          S.icon(liked ? 'favorite' : 'favorite_border') + '</button></div>';
+      }
+
+      // Dropdown menu in top right header
+      var menuHtml = '<div class="ui-pm-menu-wrap">' +
+        '<button type="button" class="ui-pm-inspect" data-ui-player-menu-btn="1" title="Sound Effects & Utilities" aria-label="Sound Effects & Utilities" aria-haspopup="true"><span class="mi">tune</span></button>' +
+        '<div class="ui-pm-dropdown-menu" id="ui-pm-dropdown-menu" hidden role="menu">' +
+        '<button type="button" class="ui-pm-menu-item" data-pm-goto="equalizer" role="menuitem">' +
+        '<span class="mi">equalizer</span>' +
+        '<div class="ui-pm-mi-text"><strong>Studio Equalizer & FX</strong><small>Bézier curve, 5-band faders & VU</small></div>' +
+        '</button>' +
+        '<button type="button" class="ui-pm-menu-item" data-pm-goto="timer" role="menuitem">' +
+        '<span class="mi">schedule</span>' +
+        '<div class="ui-pm-mi-text"><strong>Sleep Timer</strong><small>Custom time builder & fade out</small></div>' +
+        '</button>' +
+        '<button type="button" class="ui-pm-menu-item" data-pm-goto="speed" role="menuitem">' +
+        '<span class="mi">speed</span>' +
+        '<div class="ui-pm-mi-text"><strong>Speed & Volume</strong><small>Tempo, pitch & volume booster</small></div>' +
+        '</button>' +
+        '<button type="button" class="ui-pm-menu-item" data-pm-goto="download" role="menuitem">' +
+        '<span class="mi">download_for_offline</span>' +
+        '<div class="ui-pm-mi-text"><strong>Download Quality</strong><small>Lossless FLAC, 320k, offline storage</small></div>' +
+        '</button>' +
+        '<div class="ui-pm-menu-sep" role="separator"></div>' +
+        '<button type="button" class="ui-pm-menu-item" data-pm-act="inspect" role="menuitem">' +
+        '<span class="mi">tune</span>' +
+        '<div class="ui-pm-mi-text"><strong>Customize in Inspector</strong><small>Edit block styling & theme</small></div>' +
+        '</button>' +
+        '</div>' +
+        '</div>';
+
+      var handleBar = '<div class="ui-pm-handle-bar">' +
+        '<button type="button" class="ui-pm-close" data-ui-player-close="1" title="Minimize player" aria-label="Minimize player"><span class="mi">keyboard_arrow_down</span></button>' +
+        '<div class="ui-pm-route"><span class="mi">speaker_group</span><span class="ui-pm-route-name">' + esc(audioRoute) + '</span></div>' +
+        menuHtml +
+        '</div>';
+
+      // VIEW 1: Clean, spacious Now Playing view (WITHOUT sleeper/equalizer cluttering playback!)
+      var nowPlayingView = '<div class="ui-pm-view ui-pm-view-nowplaying is-active" data-view-id="nowplaying">' +
+        '<div class="ui-pm-body">' +
+        artHtml +
+        '<div class="mp-meta">' +
+        '<span class="mp-kicker">NOW PLAYING · ' + esc(style.toUpperCase()) + '</span>' +
+        '<h3 data-edit="title">' + esc(title) + '</h3>' +
+        '<p><span data-edit="artist">' + esc(artist) + '</span> · <span data-edit="album">' + esc(album) + '</span></p>' +
+        '</div>' +
+        '<div class="mp-progress">' +
+        '<div class="mp-bar"><span style="width:' + progress + '%"></span></div>' +
+        '<div class="mp-times"><span>' + esc(elapsed) + '</span><span>' + esc(duration) + '</span></div>' +
+        '</div>' +
+        '<div class="mp-controls">' +
+        '<button type="button" class="mp-btn" data-ui-player-btn="shuffle" aria-label="Shuffle">' + S.icon('shuffle') + '</button>' +
+        '<button type="button" class="mp-btn" data-ui-player-btn="prev" aria-label="Previous track">' + S.icon('skip_previous') + '</button>' +
+        '<button type="button" class="mp-play" data-ui-player-play="1" aria-label="' + (playing ? 'Pause' : 'Play') + '">' +
+        S.icon(playing ? 'pause' : 'play_arrow') + '</button>' +
+        '<button type="button" class="mp-btn" data-ui-player-btn="next" aria-label="Next track">' + S.icon('skip_next') + '</button>' +
+        '<button type="button" class="mp-btn" data-ui-player-btn="repeat" aria-label="Repeat">' + S.icon('repeat') + '</button>' +
+        '</div>' +
+        '<div class="ui-pm-quick-bar">' +
+        '<button type="button" class="ui-pm-quick-chip" data-pm-goto="equalizer" title="Open Studio Equalizer"><span class="mi">equalizer</span><span>Equalizer: <strong>' + esc(curEq) + '</strong></span></button>' +
+        '<button type="button" class="ui-pm-quick-chip" data-pm-goto="timer" title="Open Sleep Timer"><span class="mi">schedule</span><span>Sleep Timer: <strong>' + esc(curTimer) + '</strong></span></button>' +
+        '</div>' +
+        '<div class="mp-foot">' +
+        '<button type="button" class="mp-text" data-ui-player-lyrics="1">' + S.icon('lyrics') + '<span>Lyrics</span></button>' +
+        '<button type="button" class="mp-text" data-ui-player-queue="1">' + S.icon('queue_music') + '<span>Up next (12)</span></button>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+
+      // VIEW 2: Dedicated Equalizer Page (Full screen height & high fidelity)
+      var equalizerView = '<div class="ui-pm-view ui-pm-view-equalizer" data-view-id="equalizer">' +
+        '<div class="ui-pm-sub-head">' +
+        '<button type="button" class="ui-pm-back-btn" data-pm-back="1" title="Back to Now Playing"><span class="mi">arrow_back</span></button>' +
+        '<div class="ui-pm-sub-title"><strong>Audio FX & Equalizer</strong><small>Studio Master Sound Engine</small></div>' +
+        '<label class="mp-eq-master-switch" title="Toggle Equalizer"><input type="checkbox" checked data-mp-eq-power="1"><span class="mp-eq-switch-slider"></span></label>' +
+        '</div>' +
+        '<div class="ui-pm-sub-content">' +
+        this.equalizerRackMarkup(props, playing, true) +
+        '</div>' +
+        '</div>';
+
+      // VIEW 3: Dedicated Sleep Timer Page (Create your own timing builder)
+      var timerView = '<div class="ui-pm-view ui-pm-view-timer" data-view-id="timer">' +
+        '<div class="ui-pm-sub-head">' +
+        '<button type="button" class="ui-pm-back-btn" data-pm-back="1" title="Back to Now Playing"><span class="mi">arrow_back</span></button>' +
+        '<div class="ui-pm-sub-title"><strong>Sleep Timer</strong><small>Create your own custom duration</small></div>' +
+        '<button type="button" class="ui-pm-head-action" data-mp-timer="off"><span class="mi">timer_off</span><span>Turn Off</span></button>' +
+        '</div>' +
+        '<div class="ui-pm-sub-content">' +
+        this.sleepTimerClockMarkup(props.sleepTimer || '30m', true) +
+        '</div>' +
+        '</div>';
+
+      // VIEW 4: Dedicated Speed & Volume Page
+      var curSpeed = props.playbackSpeed || '1.0x';
+      var curVol = props.volume || 80;
+      var speedView = '<div class="ui-pm-view ui-pm-view-speed" data-view-id="speed">' +
+        '<div class="ui-pm-sub-head">' +
+        '<button type="button" class="ui-pm-back-btn" data-pm-back="1" title="Back to Now Playing"><span class="mi">arrow_back</span></button>' +
+        '<div class="ui-pm-sub-title"><strong>Speed & Volume</strong><small>Playback Tempo & Master Volume</small></div>' +
+        '</div>' +
+        '<div class="ui-pm-sub-content">' +
+        '<div class="mp-mod-speed-vol" style="margin-top:16px;">' +
+        '<button type="button" class="mp-mod-chip mp-speed-btn" data-mp-speed="cycle" title="Change speed"><span class="mi">speed</span><span>Speed: ' + esc(curSpeed) + '</span></button>' +
+        '<div class="mp-vol-row"><span class="mi">volume_up</span><div class="mp-vol-track"><span class="mp-vol-fill" style="width:' + curVol + '%"></span></div><span class="mp-vol-num">' + curVol + '%</span></div>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+
+      // VIEW 5: Dedicated Download Options Page
+      var dlQuality = props.downloadQuality || 'lossless';
+      var dlStorage = props.downloadStorage || 'internal';
+      var dlStatus = props.downloadStatus || 'downloaded';
+      var qLabels = {
+        lossless: 'Lossless FLAC 24/96 (48MB)',
+        high: 'High 320kbps MP3 (11MB)',
+        standard: 'Standard 256kbps AAC (8MB)',
+        saver: 'Data Saver 96kbps (3.5MB)'
+      };
+      var statusBadge = dlStatus === 'downloaded'
+        ? '<span class="mp-dl-status-badge is-saved"><span class="mi">offline_pin</span> Saved Offline</span>'
+        : (dlStatus === 'downloading'
+          ? '<span class="mp-dl-status-badge is-saving"><span class="mi">sync</span> Downloading... 68%</span>'
+          : '<span class="mp-dl-status-badge"><span class="mi">download</span> Ready to download</span>');
+
+      var downloadView = '<div class="ui-pm-view ui-pm-view-download" data-view-id="download">' +
+        '<div class="ui-pm-sub-head">' +
+        '<button type="button" class="ui-pm-back-btn" data-pm-back="1" title="Back to Now Playing"><span class="mi">arrow_back</span></button>' +
+        '<div class="ui-pm-sub-title"><strong>Download & Storage</strong><small>Offline Audio Settings</small></div>' +
+        '</div>' +
+        '<div class="ui-pm-sub-content">' +
+        '<div class="mp-mod-bar mp-mod-dl-bar" style="border:0;padding:0;">' +
+        '<div class="mp-mod-head"><span class="mi">download_for_offline</span><span>Quality: <strong>' + esc(qLabels[dlQuality] || dlQuality) + '</strong></span>' + statusBadge + '</div>' +
+        '<div class="mp-dl-quality-cards">' +
+        '<button type="button" class="mp-dl-qcard' + (dlQuality === 'lossless' ? ' on' : '') + '" data-mp-dl-quality="lossless">' +
+        '<div class="mp-dl-qhead"><strong>Studio FLAC 24-bit</strong><span class="mp-dl-size">48.2 MB</span></div>' +
+        '<small>Hi-Res 96kHz Lossless master reference</small>' +
+        '</button>' +
+        '<button type="button" class="mp-dl-qcard' + (dlQuality === 'high' ? ' on' : '') + '" data-mp-dl-quality="high">' +
+        '<div class="mp-dl-qhead"><strong>320 kbps MP3</strong><span class="mp-dl-size">11.4 MB</span></div>' +
+        '<small>High fidelity audio, universal playback</small>' +
+        '</button>' +
+        '<button type="button" class="mp-dl-qcard' + (dlQuality === 'standard' ? ' on' : '') + '" data-mp-dl-quality="standard">' +
+        '<div class="mp-dl-qhead"><strong>256 kbps AAC</strong><span class="mp-dl-size">7.8 MB</span></div>' +
+        '<small>Optimal balance for Bluetooth earbuds</small>' +
+        '</button>' +
+        '<button type="button" class="mp-dl-qcard' + (dlQuality === 'saver' ? ' on' : '') + '" data-mp-dl-quality="saver">' +
+        '<div class="mp-dl-qhead"><strong>Data Saver</strong><span class="mp-dl-size">3.1 MB</span></div>' +
+        '<small>96 kbps Opus compact mobile storage</small>' +
+        '</button>' +
+        '</div>' +
+        '<div class="mp-dl-extra-row">' +
+        '<button type="button" class="mp-mod-chip' + (dlStorage === 'internal' ? ' on' : '') + '" data-mp-dl-storage="internal"><span class="mi">smartphone</span>Internal (45GB Free)</button>' +
+        '<button type="button" class="mp-mod-chip' + (dlStorage === 'sdcard' ? ' on' : '') + '" data-mp-dl-storage="sdcard"><span class="mi">sd_card</span>SD Card (112GB Free)</button>' +
+        '<button type="button" class="mp-dl-action-btn' + (dlStatus === 'downloaded' ? ' is-done' : '') + '" data-mp-dl-action="toggle">' +
+        '<span class="mi">' + (dlStatus === 'downloaded' ? 'check_circle' : 'download') + '</span>' +
+        '<span>' + (dlStatus === 'downloaded' ? 'Downloaded (Offline Ready)' : 'Download Track') + '</span>' +
+        '</button>' +
+        '</div></div>' +
+        '</div>' +
+        '</div>';
+
+      return '<div class="ui-player-modal" id="ui-player-modal" role="dialog" aria-modal="true" aria-label="Now playing" aria-hidden="true" data-style="' + esc(style) + '" data-active-view="nowplaying">' +
+        handleBar +
+        nowPlayingView +
+        equalizerView +
+        timerView +
+        speedView +
+        downloadView +
+        '</div>';
+    },
+
     isDockBlock: function (item) {
       if (!item) return false;
-      if (item.type === 'bottomnav') return true;
-      return item.type === 'miniplayer' && item.props && !!item.props.dock;
+      var target = (S.State.data && S.State.data.target) || 'app';
+      if (item.type === 'bottomnav' || (item.type && item.type.indexOf('bottomnav') === 0)) {
+        return target === 'app';
+      }
+      if (item.type === 'miniplayer') {
+        // ALWAYS dock miniplayer at bottom (in both mobile app and website)
+        return true;
+      }
+      return false;
     },
 
     blockMarkup: function (item, selecting, selectedId) {
@@ -322,9 +819,38 @@
     },
 
     dockMarkup: function (selecting, selectedId, list) {
+      var d = S.State.data;
+      var target = (d && d.target) || 'app';
+      if (target !== 'app' && target !== 'web') return '';
       var self = this;
-      var items = (list || S.State.data.screen).filter(function (item) {
+      var rawItems = (list || d.screen).filter(function (item) {
         return self.isDockBlock(item);
+      });
+      // Deduplicate: guarantee only ONE bottom navigation bar and only ONE miniplayer is rendered in dock
+      var seenNav = false;
+      var seenPlayer = false;
+      var items = [];
+      rawItems.forEach(function (item) {
+        var isNav = item.type === 'bottomnav' || (item.type && item.type.indexOf('bottomnav') === 0);
+        if (isNav) {
+          if (seenNav) return; // strip duplicate
+          seenNav = true;
+        }
+        if (item.type === 'miniplayer') {
+          if (seenPlayer) return; // strip duplicate miniplayer
+          seenPlayer = true;
+        }
+        items.push(item);
+      });
+
+      /* Always ensure miniplayer is sorted BEFORE bottomnav so it sits above the tab bar */
+      items.sort(function (a, b) {
+        var order = { miniplayer: 0 };
+        if (a.type.indexOf('bottomnav') === 0) return 1;
+        if (b.type.indexOf('bottomnav') === 0) return -1;
+        var scoreA = order[a.type] !== undefined ? order[a.type] : 2;
+        var scoreB = order[b.type] !== undefined ? order[b.type] : 2;
+        return scoreA - scoreB;
       });
       var html = items.map(function (item) {
         return self.blockMarkup(item, selecting, selectedId);
@@ -348,10 +874,11 @@
         '<span class="cmp-resize" data-resize="1" title="Resize block" aria-hidden="true"></span>';
     },
 
-    screenMarkup: function (selecting, selectedId, flowOnly) {
+    screenMarkup: function (selecting, selectedId, flowOnly, list) {
       var data = S.State.data;
       var self = this;
-      var html = data.screen.filter(function (item) {
+      var blocks = list || data.screen;
+      var html = blocks.filter(function (item) {
         return !(flowOnly && self.isDockBlock(item));
       }).map(function (item) {
         return self.blockMarkup(item, selecting, selectedId);
@@ -361,6 +888,48 @@
         html = '<div class="screen-empty"><strong>Empty screen</strong>Pick a block on the left to start.</div>';
       }
       return html;
+    },
+
+        /* Interactive Screen Linker & Recommendation Prompt Modal */
+    navPromptMarkup: function () {
+      var d = S.State.data;
+      var pagesList = (d.target === 'app' && Array.isArray(d.pages)) ? d.pages : [];
+      var activeId = d.activePageId;
+
+      var pills = pagesList.map(function (page, idx) {
+        var on = page.id === activeId;
+        return '<button type="button" class="unp-pill' + (on ? ' is-active' : '') + '" data-unp-pill="' + idx + '" title="Link to ' + esc(page.name) + '">' +
+          S.icon(page.icon || 'msr:apps') + '<span>' + esc(page.name) + '</span>' +
+          '</button>';
+      }).join('');
+
+      return '<div class="ui-nav-prompt" id="ui-nav-prompt" role="dialog" aria-modal="true" aria-label="Connect screen" aria-hidden="true">' +
+        '<div class="unp-card">' +
+        '<div class="unp-header">' +
+        '<span class="mi unp-ico">alt_route</span>' +
+        '<div class="unp-title-wrap">' +
+        '<strong>Connect or Create Screen</strong>' +
+        '<small class="unp-sub">Target "<span class="unp-target-name">Settings</span>" is not connected yet.</small>' +
+        '</div>' +
+        '<button type="button" class="unp-close" data-unp-close="1" title="Close" aria-label="Close prompt"><span class="mi">close</span></button>' +
+        '</div>' +
+        '<div class="unp-body">' +
+        '<p>Choose a screen recommendation to build or link to an existing screen:</p>' +
+        '<div class="unp-actions">' +
+        '<button type="button" class="unp-btn unp-btn-create" data-unp-action="create-settings">' +
+        '<span class="mi">settings</span><span>+ Create Settings Screen (1-Click)</span>' +
+        '</button>' +
+        '<button type="button" class="unp-btn unp-btn-blank" data-unp-action="create-page">' +
+        '<span class="mi">note_add</span><span>+ Create New Blank Screen</span>' +
+        '</button>' +
+        '</div>' +
+        '<div class="unp-links">' +
+        '<span class="unp-label">Or link directly to an existing screen:</span>' +
+        '<div class="unp-pill-list">' + (pills || '<small style="color:var(--md-on-surface-variant)">No other screens yet</small>') + '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
     },
 
     phoneInner: function (selecting) {
@@ -379,14 +948,19 @@
     webInner: function (selecting) {
       var d = S.State.data;
       var t = S.targets.web;
+      var webBlocks = (d.screen || []).filter(function (b) {
+        return b.type !== 'bottomnav' && b.type.indexOf('bottomnav') !== 0;
+      });
       return '<div class="browser-bar">' +
         '<div class="browser-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>' +
         '<div class="browser-url">' + S.icon('lock') + '<span>' + esc(t.url) + '</span></div>' +
         '<span class="browser-act">' + S.icon('more_horiz') + '</span>' +
         '</div>' +
         '<div class="browser-screen"><div class="web-screen screen-surface' + (selecting ? ' selecting' : '') + '">' +
-        '<div class="web-page">' + this.screenMarkup(selecting, d.selectedId) + '</div>' +
-        '</div></div>';
+        '<div class="web-page">' + this.screenMarkup(selecting, d.selectedId, true, webBlocks) + '</div>' +
+        '</div>' +
+        this.dockMarkup(selecting, d.selectedId, webBlocks) +
+        '</div>';
     },
 
     extInner: function (selecting) {
@@ -487,6 +1061,7 @@
       var d = S.State.data;
       var target = d.target || 'app';
       var query = String((S.App && S.App.blockQuery) || '').trim().toLowerCase();
+      var category = String((S.App && S.App.blockCategory) || 'all').toLowerCase();
       var groups = {};
       var total = 0;
       var shown = 0;
@@ -496,6 +1071,28 @@
         var targets = def.targets || (key.indexOf('web') === 0 ? ['web'] : key.indexOf('ext') === 0 ? ['ext'] : ['app', 'ext']);
         if (targets.indexOf(target) === -1) return;
         total++;
+
+        // Visual Category Filtering
+        if (category && category !== 'all') {
+          var gLow = (def.group || '').toLowerCase();
+          var kLow = key.toLowerCase();
+          var matchCat = false;
+          if (category === 'nav') {
+            matchCat = gLow.indexOf('nav') !== -1 || kLow.indexOf('nav') !== -1 || kLow.indexOf('topappbar') !== -1 || kLow.indexOf('tab') !== -1 || kLow.indexOf('rail') !== -1 || kLow.indexOf('drawer') !== -1;
+          } else if (category === 'media') {
+            matchCat = gLow.indexOf('media') !== -1 || kLow.indexOf('player') !== -1 || kLow.indexOf('audio') !== -1 || kLow.indexOf('video') !== -1 || kLow.indexOf('music') !== -1;
+          } else if (category === 'settings') {
+            matchCat = gLow.indexOf('setting') !== -1 || gLow.indexOf('list') !== -1 || kLow.indexOf('setting') !== -1 || kLow.indexOf('profile') !== -1 || kLow.indexOf('list') !== -1 || kLow.indexOf('secret') !== -1;
+          } else if (category === 'cards') {
+            matchCat = gLow.indexOf('card') !== -1 || kLow.indexOf('card') !== -1 || kLow.indexOf('hero') !== -1 || kLow.indexOf('feed') !== -1 || kLow.indexOf('post') !== -1 || kLow.indexOf('stat') !== -1;
+          } else if (category === 'inputs') {
+            matchCat = gLow.indexOf('input') !== -1 || gLow.indexOf('form') !== -1 || kLow.indexOf('input') !== -1 || kLow.indexOf('search') !== -1 || kLow.indexOf('field') !== -1 || kLow.indexOf('slider') !== -1;
+          } else if (category === 'actions') {
+            matchCat = gLow.indexOf('action') !== -1 || gLow.indexOf('button') !== -1 || kLow.indexOf('btn') !== -1 || kLow.indexOf('button') !== -1 || kLow.indexOf('fab') !== -1 || kLow.indexOf('chip') !== -1 || kLow.indexOf('dialog') !== -1;
+          }
+          if (!matchCat) return;
+        }
+
         var haystack = (def.label + ' ' + key + ' ' + (def.group || '')).toLowerCase();
         if (query && haystack.indexOf(query) === -1) return;
         shown++;
@@ -505,7 +1102,7 @@
 
       var html = '';
       if (!shown) {
-        html = '<p class="empty palette-empty">No blocks match “' + esc(query) + '”. Try a different word.</p>';
+        html = '<p class="empty palette-empty">No blocks match “' + esc(query || category) + '”. Try a different category or search word.</p>';
       } else {
         Object.keys(groups).forEach(function (g) {
           html += '<div class="palette-group">' + esc(g) + '</div>';
@@ -519,7 +1116,7 @@
       box.innerHTML = html;
 
       var hint = document.getElementById('palette-hint');
-      if (hint) hint.textContent = query ? shown + ' of ' + total + ' shown' : 'click to add';
+      if (hint) hint.textContent = (query || (category && category !== 'all')) ? shown + ' of ' + total + ' shown' : 'click to add';
     },
 
     deviceMenu: function () {
@@ -555,18 +1152,58 @@
       var box = document.getElementById('templates');
       if (!box) return;
       var d = S.State.data;
-      var list = S.templates[d.target || 'app'] || [];
-      box.innerHTML = list.map(function (t) {
-        return '<button class="tpl" data-tpl="' + esc(t.id) + '" title="Replace this ' + esc(S.targets[d.target].short) + ' with the ' + esc(t.label) + ' template">' +
-          '<span class="tpl-ico">' + S.icon(t.icon) + '</span><span>' + esc(t.label) + '</span></button>';
-      }).join('');
+      var target = d.target || 'app';
+      var list = S.templates[target] || [];
+      var customList = S.getCustomTemplates ? S.getCustomTemplates().filter(function (c) {
+        return !c.target || c.target === target;
+      }) : [];
+
+      var toolbar = '<div class="tpl-toolbar">' +
+        '<button type="button" class="tpl-save-btn" data-tpl-action="save" title="Save current screen as a reusable custom template">' +
+        '<span class="mi">bookmark_add</span><span>Save current design</span></button>' +
+        '<div class="tpl-actions-row">' +
+        '<button type="button" class="btn-tool" data-tpl-action="export" title="Export custom templates as JSON"><span class="mi">file_download</span>Export</button>' +
+        '<button type="button" class="btn-tool" data-tpl-action="import" title="Import custom templates from JSON"><span class="mi">file_upload</span>Import</button>' +
+        '<input type="file" id="tpl-file-input" accept=".json" style="display:none">' +
+        '</div>' +
+        '</div>';
+
+      var customMarkup = '';
+      if (customList.length) {
+        customMarkup = '<div class="tpl-group-title"><span>Saved Custom Designs</span><span class="tpl-badge">' + customList.length + '</span></div>' +
+          '<div class="tpl-strip tpl-custom-strip">' +
+          customList.map(function (c) {
+            return '<div class="tpl tpl-custom-item" data-tpl="' + esc(c.id) + '" title="Apply custom design: ' + esc(c.label) + '">' +
+              '<span class="tpl-ico">' + S.icon(c.icon || 'dashboard_customize') + '</span>' +
+              '<div class="tpl-info"><strong>' + esc(c.label) + '</strong><small>' + esc(c.date || 'Custom') + '</small></div>' +
+              '<button type="button" class="tpl-del-btn" data-tpl-del="' + esc(c.id) + '" title="Delete custom template" aria-label="Delete ' + esc(c.label) + '"><span class="mi">close</span></button>' +
+              '</div>';
+          }).join('') +
+          '</div>';
+      }
+
+      var builtInMarkup = '<div class="tpl-group-title"><span>Built-in App Templates</span><span class="tpl-badge">' + list.length + '</span></div>' +
+        '<div class="tpl-strip">' +
+        list.map(function (t) {
+          return '<button type="button" class="tpl" data-tpl="' + esc(t.id) + '" title="Replace screen with ' + esc(t.label) + ' template">' +
+            '<span class="tpl-ico">' + S.icon(t.icon) + '</span>' +
+            '<div class="tpl-info"><strong>' + esc(t.label) + '</strong>' +
+            (t.badge ? '<span class="tpl-badge-tag">' + esc(t.badge) + '</span>' : '') +
+            '</div></button>';
+        }).join('') +
+        '</div>';
+
+      box.innerHTML = toolbar + customMarkup + builtInMarkup;
     },
 
     layers: function () {
+      var d = S.State.data;
+      var layerCount = document.getElementById('left-layer-count');
+      if (layerCount) layerCount.textContent = (d && d.screen) ? d.screen.length : 0;
+
       var list = document.getElementById('layers');
       var empty = document.getElementById('layers-empty');
       if (!list || !empty) return;
-      var d = S.State.data;
 
       list.innerHTML = d.screen.map(function (item) {
         var def = S.components[item.type];
@@ -594,6 +1231,51 @@
       empty.hidden = d.screen.length > 0;
     },
 
+    pages: function () {
+      var d = S.State.data;
+      var pages = (d && d.target === 'app' && Array.isArray(d.pages)) ? d.pages : [];
+      var activeId = d ? d.activePageId : null;
+
+      var countEl = document.getElementById('left-page-count');
+      if (countEl) countEl.textContent = pages.length;
+
+      var box = document.getElementById('pages-list');
+      if (!box) return;
+
+      if (!pages.length) {
+        box.innerHTML = '<li class="empty" style="padding:16px;text-align:center;color:var(--muted)">No screens created yet.</li>';
+        return;
+      }
+
+      var html = pages.map(function (page, idx) {
+        var on = page.id === activeId;
+        var isHidden = !!page.hiddenFromNav;
+        var tagLabel = isHidden ? 'Sub-page' : 'Tab ' + (idx + 1);
+        var tagCls = isHidden ? 'tag-subpage' : (on ? 'tag-active' : '');
+        var hideTitle = isHidden ? 'Include in bottom nav tabs' : 'Hide from bottom navigation (Sub-page)';
+        var hideIcon = isHidden ? 'visibility_off' : 'visibility';
+
+        return '<li class="page-row' + (on ? ' is-active' : '') + '" data-page-id="' + esc(page.id) + '" draggable="true">' +
+          '<span class="page-grip mi" draggable="true" title="Drag to reorder or combine screens" aria-hidden="true">drag_indicator</span>' +
+          '<span class="page-ico">' + S.icon(page.icon || 'msr:apps') + '</span>' +
+          '<div class="page-meta">' +
+          '<div class="page-name" data-edit-page-name="' + esc(page.id) + '" title="Click to switch screen">' + esc(page.name) + '</div>' +
+          '<div class="page-sub">' +
+          '<span class="page-tag ' + tagCls + '">' + esc(tagLabel) + '</span>' +
+          '<span>' + (page.screen ? page.screen.length : 0) + ' blocks</span>' +
+          '</div></div>' +
+          '<div class="page-actions">' +
+          '<button type="button" class="page-btn" data-act="combine-page" data-page-id="' + esc(page.id) + '" title="Combine / merge with another screen"><span class="mi">merge</span></button>' +
+          '<button type="button" class="page-btn' + (isHidden ? ' on' : '') + '" data-act="toggle-hidden" data-page-id="' + esc(page.id) + '" title="' + esc(hideTitle) + '"><span class="mi">' + hideIcon + '</span></button>' +
+          '<button type="button" class="page-btn" data-act="duplicate-page" data-page-id="' + esc(page.id) + '" title="Duplicate screen"><span class="mi">content_copy</span></button>' +
+          '<button type="button" class="page-btn" data-act="rename-page" data-page-id="' + esc(page.id) + '" title="Rename screen"><span class="mi">edit</span></button>' +
+          '<button type="button" class="page-btn danger" data-act="delete-page" data-page-id="' + esc(page.id) + '" title="Delete screen"><span class="mi">close</span></button>' +
+          '</div></li>';
+      }).join('');
+
+      box.innerHTML = html;
+    },
+
     chrome: function () {
       var d = S.State.data;
       var undo = document.getElementById('btn-undo');
@@ -604,7 +1286,9 @@
       if (compare) compare.classList.toggle('active', !!(d.compare && d.compare.on));
 
       var layerCount = document.getElementById('left-layer-count');
-      if (layerCount) layerCount.textContent = d.screen.length;
+      if (layerCount) layerCount.textContent = (d && d.screen) ? d.screen.length : 0;
+      var pageCount = document.getElementById('left-page-count');
+      if (pageCount) pageCount.textContent = (d && d.target === 'app' && Array.isArray(d.pages)) ? d.pages.length : (d && d.screen ? 1 : 0);
 
       document.querySelectorAll('#target-switch [data-target]').forEach(function (btn) {
         btn.classList.toggle('active', btn.getAttribute('data-target') === (d.target || 'app'));
@@ -616,6 +1300,7 @@
     all: function () {
       this.drawScreen();
       this.layers();
+      this.pages();
       this.chrome();
       this.templates();
       this.palette();

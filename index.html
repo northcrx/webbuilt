@@ -36,10 +36,16 @@
     <button class="tb-btn toggle" id="btn-compare" title="Show the same design in 3 fonts">
       <span class="mi">compare</span><span>Compare</span>
     </button>
+    <button class="tb-btn" id="btn-import" title="Import page or project JSON to edit"><span class="mi">file_open</span><span>Import</span></button>
     <button class="tb-btn primary" id="btn-export"><span class="mi">ios_share</span><span>Export</span></button>
     <div class="tb-menu-wrap">
       <button class="tb-btn" id="btn-more" title="More options" aria-label="More options" aria-haspopup="true" aria-expanded="false"><span class="mi">more_vert</span></button>
       <div class="tb-menu" id="tb-more-menu" role="menu" hidden>
+        <button type="button" class="tm-item" id="btn-new-project" role="menuitem"><span class="mi">add_circle</span><span>New project?</span></button>
+        <button type="button" class="tm-item" id="btn-handoff" role="menuitem"><span class="mi">android</span><span>Android handoff</span></button>
+        <button type="button" class="tm-item" id="btn-open-project" role="menuitem"><span class="mi">folder_open</span><span>Open project…</span></button>
+        <button type="button" class="tm-item" id="btn-import-page" role="menuitem"><span class="mi">file_open</span><span>Import page…</span></button>
+        <div class="tm-sep" role="separator"></div>
         <button type="button" class="tm-item" id="btn-ui-theme" role="menuitem"><span class="mi">light_mode</span><span data-ui-label>Light editor</span></button>
         <button type="button" class="tm-item danger" id="btn-reset" role="menuitem"><span class="mi">restart_alt</span><span>Reset project</span></button>
       </div>
@@ -51,8 +57,8 @@
 
   <aside class="panel panel-left">
     <nav class="ltabs" id="left-tabs" role="tablist" aria-label="Library">
-      <button class="ltab" id="ltab-templates" data-ltab="templates" role="tab" aria-selected="false" aria-controls="left-templates" tabindex="-1">Templates</button>
-      <button class="ltab" id="ltab-blocks" data-ltab="blocks" role="tab" aria-selected="false" aria-controls="left-blocks" tabindex="-1">Blocks</button>
+      <button class="ltab active" id="ltab-blocks" data-ltab="blocks" role="tab" aria-selected="true" aria-controls="left-blocks">Blocks</button>
+      <button class="ltab" id="ltab-pages" data-ltab="pages" role="tab" aria-selected="false" aria-controls="left-pages" tabindex="-1">Pages<span class="ltab-count" id="left-page-count">0</span></button>
       <button class="ltab" id="ltab-layers" data-ltab="layers" role="tab" aria-selected="false" aria-controls="left-layers" tabindex="-1">Layers<span class="ltab-count" id="left-layer-count">0</span></button>
     </nav>
 
@@ -74,7 +80,41 @@
         <input id="block-search" type="search" placeholder="Search blocks…" autocomplete="off" spellcheck="false" aria-label="Search blocks">
         <button type="button" class="search-clear" id="block-search-clear" title="Clear search" aria-label="Clear search" hidden><span class="mi">close</span></button>
       </div>
+      <div class="palette-categories" id="palette-categories">
+        <button type="button" class="pcat-btn active" data-pcat="all">All</button>
+        <button type="button" class="pcat-btn" data-pcat="nav">Navigation</button>
+        <button type="button" class="pcat-btn" data-pcat="media">Media &amp; Audio</button>
+        <button type="button" class="pcat-btn" data-pcat="settings">Settings &amp; Lists</button>
+        <button type="button" class="pcat-btn" data-pcat="cards">Cards</button>
+        <button type="button" class="pcat-btn" data-pcat="inputs">Inputs</button>
+        <button type="button" class="pcat-btn" data-pcat="actions">Buttons</button>
+      </div>
       <div class="palette" id="palette"></div>
+    </section>
+
+    <section class="ltab-body" id="left-pages" role="tabpanel" aria-labelledby="ltab-pages" hidden>
+      <div class="panel-head sticky">
+        <h2>Screens &amp; Pages</h2>
+        <span class="hint" id="pages-hint">manage &amp; link</span>
+      </div>
+      <div class="pages-toolbar">
+        <div class="pages-add-dropdown">
+          <button type="button" class="tb-btn primary small" id="btn-add-page-quick">
+            <span class="mi">add</span><span>Add Screen</span>
+          </button>
+          <button type="button" class="tb-btn primary small icon-only" id="btn-add-page-menu" title="More screen templates">
+            <span class="mi">arrow_drop_down</span>
+          </button>
+          <div class="pages-menu-popup" id="pages-add-menu" hidden>
+            <button type="button" class="pmp-item" data-template="blank"><span class="mi">note_add</span><span>Blank Screen</span></button>
+            <button type="button" class="pmp-item" data-template="settings"><span class="mi">settings</span><span>Settings &amp; Preferences</span></button>
+            <button type="button" class="pmp-item" data-template="profile"><span class="mi">person</span><span>User Profile &amp; Account</span></button>
+            <button type="button" class="pmp-item" data-template="detail"><span class="mi">article</span><span>Detail / Article Screen</span></button>
+            <button type="button" class="pmp-item" data-template="player"><span class="mi">play_circle</span><span>Fullscreen Media Player</span></button>
+          </div>
+        </div>
+      </div>
+      <ol class="pages-list" id="pages-list"></ol>
     </section>
 
     <section class="ltab-body" id="left-layers" role="tabpanel" aria-labelledby="ltab-layers" hidden>
@@ -111,17 +151,91 @@
         </div>
       </div>
     </div>
+
+    <!-- Floating Canvas Selection HUD: Sits OUTSIDE the phone screen so it NEVER obstructs buttons/controls! -->
+    <div class="canvas-hud" id="canvas-hud" hidden>
+      <div class="chud-chip">
+        <span class="mi" id="chud-icon">widgets</span>
+        <span class="chud-title" id="chud-title">Component</span>
+      </div>
+      <div class="chud-divider"></div>
+      <div class="chud-actions">
+        <button type="button" class="chud-btn" data-chud="up" title="Move up (↑)"><span class="mi">expand_less</span></button>
+        <button type="button" class="chud-btn" data-chud="down" title="Move down (↓)"><span class="mi">expand_more</span></button>
+        <button type="button" class="chud-btn" data-chud="lock" title="Lock block"><span class="mi" id="chud-lock-icon">lock_open</span></button>
+        <button type="button" class="chud-btn" data-chud="hide" title="Hide block"><span class="mi" id="chud-hide-icon">visibility</span></button>
+        <button type="button" class="chud-btn" data-chud="duplicate" title="Duplicate (Ctrl+D)"><span class="mi">content_copy</span></button>
+        <button type="button" class="chud-btn danger" data-chud="del" title="Delete (Del)"><span class="mi">close</span></button>
+      </div>
+    </div>
+
+    <!-- Google Sites External Gutter Rail: Pinned on the left margin OUTSIDE the phone -->
+    <div class="canvas-gutter-rail" id="canvas-gutter-rail" hidden>
+      <button type="button" class="cgr-btn" data-cgr="up" title="Move up (↑)"><span class="mi">expand_less</span></button>
+      <button type="button" class="cgr-btn" data-cgr="down" title="Move down (↓)"><span class="mi">expand_more</span></button>
+      <button type="button" class="cgr-btn" data-cgr="duplicate" title="Duplicate block (Ctrl+D)"><span class="mi">content_copy</span></button>
+      <button type="button" class="cgr-btn" data-cgr="lock" title="Lock block"><span class="mi" id="cgr-lock-icon">lock_open</span></button>
+      <button type="button" class="cgr-btn" data-cgr="hide" title="Hide block"><span class="mi" id="cgr-hide-icon">visibility</span></button>
+      <button type="button" class="cgr-btn danger" data-cgr="del" title="Delete block (Del)"><span class="mi">delete</span></button>
+    </div>
+
+    <!-- Canvas Link Connector Pill: Quick screen route linker -->
+    <div class="canvas-link-pill" id="canvas-link-pill" hidden>
+      <span class="mi">alt_route</span>
+      <span class="clp-label">Connect:</span>
+      <select class="clp-select" id="clp-target" aria-label="Target screen"></select>
+      <button type="button" class="clp-test" id="clp-test" title="Test transition live in phone"><span class="mi">play_arrow</span><span>Test</span></button>
+    </div>
+
+    <!-- Google Sites Floating Speed Dial (+): Instant screen generator -->
+    <div class="speed-dial" id="speed-dial">
+      <div class="sd-menu" id="sd-menu" hidden>
+        <!-- Header Creation -->
+        <div class="sd-section-header"><span class="mi" style="font-size:14px;vertical-align:middle;margin-right:4px;">view_headline</span>Header Creation</div>
+        <button type="button" class="sd-item" data-sd-block="appbar"><span class="mi">web_asset</span><span>Top App Bar (Header)</span></button>
+        <button type="button" class="sd-item" data-sd-block="searchheader"><span class="mi">search</span><span>Search Bar Header</span></button>
+        <button type="button" class="sd-item" data-sd-block="profilebar"><span class="mi">account_circle</span><span>Profile &amp; User Bar</span></button>
+        <button type="button" class="sd-item" data-sd-block="tabssegmented"><span class="mi">tab</span><span>Segmented Tabs Header</span></button>
+
+        <div class="sd-divider"></div>
+
+        <!-- Bottom Menu Bar Creation -->
+        <div class="sd-section-header"><span class="mi" style="font-size:14px;vertical-align:middle;margin-right:4px;">dock</span>Bottom Menu Bar Creation</div>
+        <button type="button" class="sd-item" data-sd-block="bottomnav" data-sd-style="material"><span class="mi">navigation</span><span>Material 3 Nav Bar</span></button>
+        <button type="button" class="sd-item" data-sd-block="bottomnavfloating" data-sd-style="floating"><span class="mi">space_dashboard</span><span>Floating Island Dock</span></button>
+        <button type="button" class="sd-item" data-sd-block="bottomnavfab" data-sd-style="center-fab"><span class="mi">add_circle</span><span>Center Action FAB Bar</span></button>
+        <button type="button" class="sd-item" data-sd-block="bottomnavglass" data-sd-style="glass"><span class="mi">blur_on</span><span>Frosted Glass Nav Bar</span></button>
+
+        <div class="sd-divider"></div>
+
+        <!-- Screen & Page Creation -->
+        <div class="sd-section-header"><span class="mi" style="font-size:14px;vertical-align:middle;margin-right:4px;">devices</span>Screen Creation</div>
+        <button type="button" class="sd-item" data-sd-template="blank"><span class="mi">note_add</span><span>New Blank Screen</span></button>
+        <button type="button" class="sd-item" data-sd-template="settings"><span class="mi">settings</span><span>Settings &amp; Preferences Screen</span></button>
+        <button type="button" class="sd-item" data-sd-template="profile"><span class="mi">person</span><span>User Account Screen</span></button>
+        <button type="button" class="sd-item" data-sd-template="detail"><span class="mi">article</span><span>Story &amp; Detail Screen</span></button>
+        <button type="button" class="sd-item" data-sd-template="player"><span class="mi">play_circle</span><span>Fullscreen Player Screen</span></button>
+        <button type="button" class="sd-item" data-sd-template="import"><span class="mi">file_open</span><span>Import Screen (JSON)</span></button>
+      </div>
+      <button type="button" class="sd-fab" id="sd-fab" title="Add screen or layout" aria-label="Add screen or layout">
+        <span class="mi" id="sd-fab-icon">add</span>
+      </button>
+    </div>
+
     <div class="devices" id="devices"></div>
   </section>
 
+  <!-- Right Studio Panel: Focused Studio Tabs -->
   <aside class="panel panel-right">
     <nav class="ptabs" id="panel-tabs">
       <button class="ptab active" data-tab="inspect">Inspect</button>
+      <button class="ptab" data-tab="connect">Connect</button>
       <button class="ptab" data-tab="theme">Theme</button>
       <button class="ptab" data-tab="type">Type</button>
       <button class="ptab" data-tab="icons">Icons</button>
     </nav>
     <div class="tab-body" id="tab-inspect"></div>
+    <div class="tab-body" id="tab-connect" hidden></div>
     <div class="tab-body" id="tab-theme" hidden></div>
     <div class="tab-body" id="tab-type" hidden></div>
     <div class="tab-body" id="tab-icons" hidden></div>
@@ -131,6 +245,51 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<input type="file" id="import-project-file" accept=".json,application/json" hidden>
+<input type="file" id="import-page-file" accept=".json,application/json" hidden>
+
+<!-- New Project / Starter Choice Modal -->
+<div class="modal-backdrop" id="starter-modal" hidden>
+  <div class="modal starter-modal">
+    <div class="modal-head starter-head">
+      <div>
+        <h2>What would you like to create?</h2>
+        <p class="modal-sub">Choose a target to start with a clean, blank project.</p>
+      </div>
+      <button type="button" class="tb-btn icon-only" id="starter-close" aria-label="Close"><span class="mi">close</span></button>
+    </div>
+    <div class="starter-grid">
+      <button type="button" class="starter-card" data-start-target="app">
+        <div class="sc-icon app"><span class="mi">smartphone</span></div>
+        <div class="sc-info">
+          <strong>Mobile App</strong>
+          <p>Android Material 3 & Jetpack Compose prototype with multi-screen flow.</p>
+        </div>
+        <span class="sc-badge"><span class="mi">add</span>Start blank app</span>
+      </button>
+
+      <button type="button" class="starter-card" data-start-target="web">
+        <div class="sc-icon web"><span class="mi">language</span></div>
+        <div class="sc-info">
+          <strong>Website</strong>
+          <p>Modern responsive landing page, desktop hero and multi-section layouts.</p>
+        </div>
+        <span class="sc-badge"><span class="mi">add</span>Start blank website</span>
+      </button>
+
+      <button type="button" class="starter-card" data-start-target="ext">
+        <div class="sc-icon ext"><span class="mi">extension</span></div>
+        <div class="sc-info">
+          <strong>Extension</strong>
+          <p>Browser extension popup, side-panel tools, and widget card layouts.</p>
+        </div>
+        <span class="sc-badge"><span class="mi">add</span>Start blank extension</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
 <div class="modal-backdrop" id="export-modal" hidden>
   <div class="modal">
     <div class="modal-head">
@@ -140,12 +299,136 @@
       </div>
       <button class="tb-btn" id="export-close" aria-label="Close"><span class="mi">close</span></button>
     </div>
-    <textarea id="export-code" readonly spellcheck="false"></textarea>
+    <nav class="modal-tabs" id="export-tabs" role="tablist" aria-label="Export format">
+      <button type="button" class="mtab active" data-mtab="html" role="tab" aria-selected="true" aria-controls="export-code">Web Mockup</button>
+      <button type="button" class="mtab" data-mtab="android" role="tab" aria-selected="false" aria-controls="export-code" tabindex="-1">Android (Compose)</button>
+      <button type="button" class="mtab" data-mtab="page" role="tab" aria-selected="false" aria-controls="export-code" tabindex="-1">Page (JSON)</button>
+      <button type="button" class="mtab" data-mtab="project" role="tab" aria-selected="false" aria-controls="export-code" tabindex="-1">Design Spec (JSON)</button>
+      <button type="button" class="mtab" data-mtab="prompt" role="tab" aria-selected="false" aria-controls="export-code" tabindex="-1">AI Prompt</button>
+    </nav>
+    <div class="export-android-bar" id="export-android-bar" hidden>
+      <div class="eab-field">
+        <label for="export-app-name">App Name</label>
+        <input type="text" id="export-app-name" value="Droid Lab" placeholder="App Name">
+      </div>
+      <div class="eab-field">
+        <label for="export-package-name">Package Name</label>
+        <input type="text" id="export-package-name" value="com.example.droidlab" placeholder="com.example.app">
+      </div>
+      <div class="eab-field">
+        <label for="export-min-sdk">Min SDK</label>
+        <select id="export-min-sdk">
+          <option value="24">API 24 (Android 7.0)</option>
+          <option value="26" selected>API 26 (Android 8.0)</option>
+          <option value="28">API 28 (Android 9.0)</option>
+        </select>
+      </div>
+      <div class="eab-field eab-file-select">
+        <label for="export-file-picker">Project File</label>
+        <select id="export-file-picker"></select>
+      </div>
+    </div>
+    <div class="export-validation-banner" id="export-validation-banner" hidden></div>
+    <textarea id="export-code" readonly spellcheck="false" aria-label="Export output"></textarea>
     <div class="modal-actions">
       <span class="modal-note" id="export-note"></span>
-      <button class="tb-btn" id="export-copy"><span class="mi">content_copy</span><span>Copy HTML</span></button>
-      <button class="tb-btn primary" id="export-download"><span class="mi">download</span><span>Download .html</span></button>
+      <button class="tb-btn" id="export-copy"><span class="mi">content_copy</span><span>Copy</span></button>
+      <button class="tb-btn" id="export-download"><span class="mi">download</span><span>Download</span></button>
+      <button class="tb-btn primary" id="export-zip" hidden><span class="mi">archive</span><span>Download Project (.zip)</span></button>
     </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-backdrop" id="import-modal" hidden>
+  <div class="modal import-modal-box">
+    <div class="modal-head">
+      <div>
+        <h2>Import page or project</h2>
+        <p class="modal-sub">Import a Droid Lab JSON file or paste JSON code. Edit on canvas and export anytime.</p>
+      </div>
+      <button class="tb-btn" id="import-close" aria-label="Close"><span class="mi">close</span></button>
+    </div>
+    <div class="import-body">
+      <div class="import-dropzone" id="import-dropzone">
+        <span class="mi">cloud_upload</span>
+        <p>Drag and drop a <strong>.json</strong> file here, or click to browse</p>
+        <button type="button" class="tb-btn" id="btn-browse-file"><span class="mi">folder_open</span><span>Browse file</span></button>
+        <input type="file" id="import-picker-file" accept=".json,application/json" hidden>
+      </div>
+      <div class="import-paste-sect">
+        <label for="import-json-paste">Or paste JSON design specification directly:</label>
+        <textarea id="import-json-paste" placeholder="Paste { &quot;format&quot;: &quot;droidlab.page&quot; ... } or Design Spec JSON here..."></textarea>
+      </div>
+      <div class="import-preview-card" id="import-preview-card" hidden>
+        <div class="ipc-head">
+          <span class="mi" id="ipc-icon">description</span>
+          <div>
+            <strong id="ipc-name">Imported Page</strong>
+            <small id="ipc-details">3 blocks · Theme detected</small>
+          </div>
+          <span class="ipc-badge" id="ipc-badge">Page file</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <span class="modal-note" id="import-note">Select a file or paste JSON to import</span>
+      <button class="tb-btn" id="btn-import-new-page" disabled><span class="mi">add_circle</span><span>Add as new page</span></button>
+      <button class="tb-btn primary" id="btn-import-replace-page" disabled><span class="mi">edit_note</span><span>Replace current page &amp; edit</span></button>
+      <button class="tb-btn" id="btn-import-open-project" disabled><span class="mi">folder_open</span><span>Open project</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Direct Canvas Icon Switcher Popover -->
+<div class="canvas-icon-popover" id="canvas-icon-popover" hidden>
+  <div class="cip-head">
+    <div class="cip-title-row">
+      <span class="mi cip-preview" id="cip-preview">star</span>
+      <div class="cip-titles">
+        <strong>Switch Icon</strong>
+        <small id="cip-target-name">Direct Canvas Switcher</small>
+      </div>
+    </div>
+    <button type="button" class="tb-btn small icon-only" id="cip-close" aria-label="Close icon popover"><span class="mi">close</span></button>
+  </div>
+  <div class="cip-search">
+    <span class="mi">search</span>
+    <input type="search" id="cip-input" placeholder="Search 2,000+ icons (e.g. play, settings, home)..." autocomplete="off" spellcheck="false">
+  </div>
+  <div class="cip-categories" id="cip-categories">
+    <button type="button" class="cip-cat active" data-cip-cat="all">All</button>
+    <button type="button" class="cip-cat" data-cip-cat="nav">Navigation</button>
+    <button type="button" class="cip-cat" data-cip-cat="media">Media</button>
+    <button type="button" class="cip-cat" data-cip-cat="actions">Actions</button>
+    <button type="button" class="cip-cat" data-cip-cat="ui">UI &amp; Forms</button>
+  </div>
+  <div class="cip-grid" id="cip-grid"></div>
+  <div class="cip-footer">
+    <button type="button" class="cip-more" id="cip-more"><span class="mi">open_in_new</span><span>Open full icon library</span></button>
+  </div>
+</div>
+
+<!-- Universal Floating Context Menu (Right-Click) -->
+<div class="ctx-menu" id="ctx-menu" hidden>
+  <div class="ctx-menu-header" id="ctx-menu-header"></div>
+  <div class="ctx-menu-body" id="ctx-menu-body"></div>
+</div>
+
+<!-- Quick Link / Destination Picker Modal -->
+<div class="ctx-link-modal" id="ctx-link-modal" hidden>
+  <div class="clm-card">
+    <div class="clm-header">
+      <div class="clm-title-row">
+        <span class="mi clm-icon">alt_route</span>
+        <div>
+          <strong id="clm-title">Link to Destination</strong>
+          <small id="clm-subtitle">Choose where this element navigates to</small>
+        </div>
+      </div>
+      <button type="button" class="clm-close" id="clm-close" aria-label="Close link picker"><span class="mi">close</span></button>
+    </div>
+    <div class="clm-body" id="clm-body"></div>
   </div>
 </div>
 
@@ -163,9 +446,25 @@
 <script src="js/theme-panel.js"></script>
 <script src="js/fonts-panel.js"></script>
 <script src="js/icons-panel.js"></script>
+<script src="js/connect-panel.js"></script>
 <script src="js/dragdrop.js"></script>
 <script src="js/interactions.js"></script>
+<script src="js/project.js"></script>
+<script src="js/android.js"></script>
+<script src="js/exporters/zip.js"></script>
+<script src="js/exporters/android/IconGenerator.js"></script>
+<script src="js/exporters/android/ThemeGenerator.js"></script>
+<script src="js/exporters/android/ResourceGenerator.js"></script>
+<script src="js/exporters/android/NavigationGenerator.js"></script>
+<script src="js/exporters/android/ComposeGenerator.js"></script>
+<script src="js/exporters/android/ManifestGenerator.js"></script>
+<script src="js/exporters/android/GradleGenerator.js"></script>
+<script src="js/exporters/android/AndroidExporter.js"></script>
+<script src="js/exporters/json/DesignSpecExporter.js"></script>
+<script src="js/exporters/prompt/AIPromptGenerator.js"></script>
+<script src="js/import.js"></script>
 <script src="js/export.js"></script>
+<script src="js/context-menu.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -9,6 +9,10 @@
   var navDrag = null;
   var pageDrag = null;
 
+  function isBottomNav(type) {
+    return type === 'bottomnav' || (typeof type === 'string' && type.indexOf('bottomnav') === 0);
+  }
+
   /* Friendly hints shown under every field. Explicit `hint` on a field wins. */
   var HINTS = {
     title: 'Main heading shown in this block.',
@@ -132,7 +136,26 @@
     componentPanel: function (item) {
       var def = S.components[item.type];
       if (!def) return '';
-      var fields = def.fields.map(function (f) { return this.field(f, item); }, this).join('');
+      var fields = def.fields.filter(function (f) {
+        if (item.type === 'appbar') {
+          var v = (item.props && item.props.variant) || 'small';
+          if (f.key === 'greeting' && v !== 'profile') return false;
+          if (f.key === 'searchPlaceholder' && v !== 'search' && v !== 'search-pill') return false;
+          if (f.key === 'badgeText' && v !== 'store' && v !== 'social') return false;
+          if (f.key === 'avatarInitials' && v !== 'profile' && v !== 'saas' && v !== 'search-pill') return false;
+        }
+        if (item.type === 'musiclisting') {
+          var vm = (item.props && item.props.viewMode) || 'songs';
+          if (f.key === 'items' && vm !== 'songs') return false;
+          if (f.key === 'albumItems' && vm !== 'albums') return false;
+          if (f.key === 'artistItems' && vm !== 'artists') return false;
+          if (f.key === 'beatItems' && vm !== 'beats') return false;
+          if (f.key === 'activeTrack' && vm !== 'songs') return false;
+          if (f.key === 'layout' && vm !== 'songs') return false;
+        }
+        if (isBottomNav(item.type) && f.key === 'active') return false;
+        return true;
+      }).map(function (f) { return this.field(f, item); }, this).join('');
       var lockLabel = item.locked ? 'Unlock' : 'Lock';
       var hideLabel = item.hidden ? 'Show' : 'Hide';
 
@@ -144,34 +167,175 @@
         '<button type="button" class="mini" data-act="duplicate" data-block-id="' + esc(item.id) + '" title="Duplicate (Ctrl+D)" aria-label="Duplicate block"><span class="mi">content_copy</span></button>' +
         '<button type="button" class="mini" data-act="up" data-block-id="' + esc(item.id) + '" title="Move up" aria-label="Move block up"><span class="mi">expand_less</span></button>' +
         '<button type="button" class="mini" data-act="down" data-block-id="' + esc(item.id) + '" title="Move down" aria-label="Move block down"><span class="mi">expand_more</span></button>' +
+        '<button type="button" class="mini' + (item.locked ? ' on' : '') + '" data-act="lock" data-block-id="' + esc(item.id) + '" title="' + lockLabel + '" aria-label="' + lockLabel + '"><span class="mi">' + (item.locked ? 'lock' : 'lock_open') + '</span></button>' +
+        '<button type="button" class="mini' + (item.hidden ? ' on' : '') + '" data-act="hide" data-block-id="' + esc(item.id) + '" title="' + hideLabel + '" aria-label="' + hideLabel + '"><span class="mi">' + (item.hidden ? 'visibility' : 'visibility_off') + '</span></button>' +
         '<button type="button" class="mini" data-act="del" data-block-id="' + esc(item.id) + '" title="Delete block" aria-label="Delete block"><span class="mi">close</span></button>' +
         '</div></div>' +
 
-        /* Content */
+        /* Top Tabs Interactive Preview & Category Switcher */
+        ((item.type === 'tabs' || item.type === 'tabspill') ? this.tabsPreviewSection(item) : '') +
+
+        /* Music Listing Category View Switcher (Songs, Albums, Artists, Beats) */
+        (item.type === 'musiclisting' ? this.musicListingOptionsSection(item) : '') +
+
+        /* Content & Essentials */
         '<div class="sect">' +
-        '<div class="sect-title">Content</div>' + fields +
+        '<div class="sect-title">Content &amp; Properties</div>' + fields +
         '</div>' +
 
-        /* Phase A — typography for this block */
+        /* Navigation Link & Screen Shortcut (Immediate visual connection) */
+        this.navigationSection(item) +
+
+        /* Full Screen Music Player Experience & Customization */
+        ((item.type === 'miniplayer' || item.type === 'musicplayer') ? this.musicPlayerOptionsSection(item) : '') +
+
+        /* Accordion: Typography & Fonts */
+        '<details class="insp-accordion"><summary><span class="mi">format_size</span><span>Typography &amp; Fonts</span><span class="mi chev">expand_more</span></summary><div class="insp-accordion-body">' +
         S.Typography.section(item) +
+        '</div></details>' +
 
-        /* Style */
+        /* Accordion: Style & Colors */
+        '<details class="insp-accordion"><summary><span class="mi">palette</span><span>Style &amp; Appearance</span><span class="mi chev">expand_more</span></summary><div class="insp-accordion-body">' +
         this.styleSection(item) +
+        '</div></details>' +
 
-        /* Size */
+        /* Accordion: Dimensions & Layout */
+        '<details class="insp-accordion"><summary><span class="mi">aspect_ratio</span><span>Dimensions &amp; Sizing</span><span class="mi chev">expand_more</span></summary><div class="insp-accordion-body">' +
         this.sizeSection(item) +
+        '</div></details>' +
 
-        /* Advanced */
+        /* Accordion: Advanced Controls */
+        '<details class="insp-accordion"><summary><span class="mi">tune</span><span>Advanced Settings</span><span class="mi chev">expand_more</span></summary><div class="insp-accordion-body">' +
         this.advancedSection(item, lockLabel, hideLabel) +
+        '</div></details>' +
 
         /* Screens + Phase B — drawer / menu content */
-        this.pagesSection() +
-        this.navSection() +
+        (!isBottomNav(item.type) ? this.pagesSection() : '') +
+        (!isBottomNav(item.type) ? this.navSection() : '') +
 
-        '<p class="inspect-note">Click any text in the preview to edit it directly. Enter saves · Esc cancels.</p>';
+        '<p class="inspect-note">Click any text on the phone to edit directly · Click any icon to switch it.</p>';
     },
 
-    styleSection: function (item) {
+    tabsPreviewSection: function (item) {
+      var p = item.props || {};
+      var rawLabels = String(p.labels || '').split(',');
+      var active = Number(p.active) || 0;
+
+      var tabChips = rawLabels.map(function (label, idx) {
+        var clean = label.trim();
+        var on = idx === active;
+        return '<button type="button" class="tab-preview-chip' + (on ? ' is-active' : '') + '" data-tab-preview-idx="' + idx + '" title="Preview \'' + esc(clean) + '\' tab">' +
+          '<span class="tab-chip-num">' + (idx + 1) + '</span>' +
+          '<span class="tab-chip-lbl">' + esc(clean) + '</span>' +
+          (on ? '<span class="mi tab-chip-check">check</span>' : '') +
+          '</button>';
+      }).join('');
+
+      var presets = [
+        { label: '🎵 Music (Songs, Albums, Artists, Beats)', val: 'Songs, Albums, Artists, Beats' },
+        { label: '👥 Library (Playlists, Artists, Albums, Downloaded)', val: 'Playlists, Artists, Albums, Downloaded' },
+        { label: '🔥 Browse (For You, Following, Discover, Charts)', val: 'For You, Following, Discover, Charts' }
+      ];
+
+      var presetBtns = presets.map(function (pr) {
+        return '<button type="button" class="mini tab-preset-btn" data-tabs-preset="' + esc(pr.val) + '">' + esc(pr.label) + '</button>';
+      }).join('');
+
+      return '<div class="sect tabs-preview-sect">' +
+        '<div class="sect-title">Active Tab Preview (Click to Switch View)</div>' +
+        '<p class="f-hint" style="margin-bottom:8px">Click any tab chip below to preview how the screen looks under each category:</p>' +
+        '<div class="tab-preview-chips-row">' + tabChips + '</div>' +
+        '<div class="sect-title" style="margin-top:12px">Quick Category Presets</div>' +
+        '<div class="tab-presets-row" style="display:flex;flex-direction:column;gap:5px;margin-top:6px">' + presetBtns + '</div>' +
+        '</div>';
+    },
+
+    musicListingOptionsSection: function (item) {
+      var p = item.props || {};
+      var view = p.viewMode || 'songs';
+
+      var views = [
+        { id: 'songs', label: '1. Songs / Tracks', icon: 'music_note', desc: 'Numbered tracklist with EQ waves, badges & duration' },
+        { id: 'albums', label: '2. Albums Discography', icon: 'album', desc: 'Vinyl sleeve cover art grid with track count & play FAB' },
+        { id: 'artists', label: '3. Artists Profiles', icon: 'person', desc: 'Circular profiles with verified badges, listeners & Follow' },
+        { id: 'beats', label: '4. Beats / Audio', icon: 'graphic_eq', desc: 'Audio waveform visualizers, BPM chips & licensing' }
+      ];
+
+      var viewCards = views.map(function (v) {
+        var on = view === v.id;
+        return '<button type="button" class="ml-cat-pill' + (on ? ' is-active' : '') + '" data-ml-set-view="' + v.id + '" title="' + esc(v.label) + '">' +
+          '<span class="mi">' + v.icon + '</span>' +
+          '<div class="ml-cat-meta"><strong>' + esc(v.label) + '</strong><small>' + esc(v.desc) + '</small></div>' +
+          (on ? '<span class="mi ml-cat-chk">check_circle</span>' : '') +
+          '</button>';
+      }).join('');
+
+      return '<div class="sect ml-category-sect">' +
+        '<div class="sect-title">Listing Category View</div>' +
+        '<p class="f-hint" style="margin-bottom:8px">Switch between Songs, Albums, Artists, and Beats views with 1 click:</p>' +
+        '<div class="ml-cat-grid">' + viewCards + '</div>' +
+        '</div>';
+    },
+
+    musicPlayerOptionsSection: function (item) {
+      var p = item.props || {};
+      var style = item.type === 'miniplayer' ? (p.fullPlayerStyle || 'vinyl') : (p.style || 'vinyl');
+      var isMini = item.type === 'miniplayer';
+
+      var styles = [
+        { id: 'vinyl', label: '1. Vinyl Turntable', icon: 'album', desc: 'Rotating vinyl LP record with grooved rings & tonearm' },
+        { id: 'classic', label: '2. Hero Album Card', icon: 'crop_square', desc: 'Large high-contrast rounded album art card with soft shadow' },
+        { id: 'cassette', label: '3. Vintage Cassette', icon: 'tape', desc: 'Retro 80s/90s cassette tape with dual spinning spools & tape window' },
+        { id: 'glass', label: '4. Frosted Glass Neumorphic', icon: 'blur_on', desc: 'Translucent glass card with neon aura & pulsating visualizer halo' },
+        { id: 'equalizer', label: '5. Studio Master EQ Rack', icon: 'equalizer', desc: 'Hardware rack with VU meters, dB scale & 5-band frequency faders' },
+        { id: 'lyrics', label: '6. Waveform & Lyrics', icon: 'lyrics', desc: 'Real-time animated audio visualizer bars & synced lyrics line' },
+        { id: 'gradient', label: '7. Immersive Gradient', icon: 'gradient', desc: 'Full-bleed atmospheric mesh gradient with frosted glass controls' },
+        { id: 'minimal', label: '8. Minimalist Hi-Fi', icon: 'tune', desc: 'Clean typography, decibel meter and refined studio controls' }
+      ];
+
+      var styleCards = styles.map(function (s) {
+        var on = style === s.id;
+        return '<button type="button" class="mp-style-pill' + (on ? ' is-active' : '') + '" data-mp-style="' + s.id + '" title="' + esc(s.label) + '">' +
+          '<span class="mi">' + s.icon + '</span>' +
+          '<div class="mp-style-meta"><strong>' + esc(s.label) + '</strong><small>' + esc(s.desc) + '</small></div>' +
+          (on ? '<span class="mi mp-chk">check_circle</span>' : '') +
+          '</button>';
+      }).join('');
+
+      // Modular Tooling Toggles
+      var modules = [
+        { key: 'showSleepTimer', label: 'Sleep Timer', icon: 'timer', on: !!p.showSleepTimer, val: p.sleepTimer || '30m' },
+        { key: 'showEqualizer', label: 'Equalizer FX', icon: 'equalizer', on: !!p.showEqualizer, val: p.eqPreset || 'Bass Boost' },
+        { key: 'showQualityBadge', label: 'Hi-Res Badge', icon: 'verified', on: !!p.showQualityBadge, val: '24-bit' },
+        { key: 'showSpeedVolume', label: 'Speed & Volume', icon: 'speed', on: !!p.showSpeedVolume, val: (p.playbackSpeed || '1.0x') + ' · ' + (p.volume || 80) + '%' },
+        { key: 'showQueue', label: 'Up Next Queue', icon: 'queue_music', on: !!p.showQueue, val: '3 tracks' },
+        { key: 'showLyrics', label: 'Synced Lyrics', icon: 'lyrics', on: !!p.showLyrics, val: 'Sheet' },
+        { key: 'showDownloadOptions', label: 'Download Options', icon: 'download_for_offline', on: !!p.showDownloadOptions, val: p.downloadQuality || 'Lossless' }
+      ];
+
+      var modulePills = modules.map(function (m) {
+        return '<button type="button" class="mp-mod-toggle-btn' + (m.on ? ' is-active' : '') + '" data-mp-mod-toggle="' + m.key + '">' +
+          '<span class="mi">' + m.icon + '</span>' +
+          '<span class="mp-mtb-name">' + esc(m.label) + '</span>' +
+          '<span class="mp-mtb-status">' + (m.on ? 'ON · ' + esc(m.val) : 'OFF') + '</span>' +
+          '</button>';
+      }).join('');
+
+      return '<div class="sect mp-full-sect">' +
+        '<div class="sect-title">Full-Screen Music Player Experience</div>' +
+        '<p class="f-hint" style="margin-bottom:8px">Choose your player design variation below:</p>' +
+        '<div class="mp-style-grid">' + styleCards + '</div>' +
+        '<div class="sect-title" style="margin-top:14px">Modular Inside Features</div>' +
+        '<p class="f-hint" style="margin-bottom:8px">Toggle modular tools and widgets inside the music player:</p>' +
+        '<div class="mp-modules-grid">' + modulePills + '</div>' +
+        '<div class="f-pair" style="margin-top:12px">' +
+        '<button type="button" class="mini wide on" data-act="preview-player" title="Open and preview the full-screen music player in phone"><span class="mi">play_circle</span>Preview in phone</button>' +
+        '<button type="button" class="mini wide" data-act="create-player-screen" title="Add a dedicated Now Playing screen with this style"><span class="mi">add_to_photos</span>Add as new screen</button>' +
+        '</div>' +
+        '</div>';
+    },
+
+        styleSection: function (item) {
       var style = item.style || {};
       var radius = STYLE_ROWS[4];
       var bg = typeof style.background === 'string' ? style.background : '';
@@ -231,6 +395,62 @@
         '</div>';
     },
 
+    navigationSection: function (item) {
+      var d = S.State.data;
+      if (d.target !== 'app') return '';
+      if (isBottomNav(item.type) || item.type === 'appbar') return '';
+      var p = item.props || {};
+      var pagesList = Array.isArray(d.pages) ? d.pages : [];
+      var navTarget = p.navTarget || '';
+      var transition = p.transition || 'slide';
+
+      var pageOptions = pagesList.map(function (page, idx) {
+        var val = page.id;
+        var label = page.name || ('Screen ' + (idx + 1));
+        var on = navTarget === val || navTarget === label.toLowerCase() || (navTarget === 'settings' && /setting/i.test(label));
+        return '<option value="' + esc(val) + '"' + (on ? ' selected' : '') + '>' + esc(label) + '</option>';
+      }).join('');
+
+      var isLinked = !!navTarget;
+      var recommendation = '';
+      if (!isLinked) {
+        recommendation = '<div class="nav-recom-box">' +
+          '<div class="nrb-head"><span class="mi">alt_route</span><strong>No screen linked</strong></div>' +
+          '<small>Choose where this control moves when clicked in the phone preview:</small>' +
+          '<div class="nrb-actions">' +
+          '<button type="button" class="mini on" data-act="quick-link-settings"><span class="mi">settings</span>Connect Settings</button>' +
+          (pagesList.length > 1 ? '<button type="button" class="mini" data-act="quick-link-page2"><span class="mi">open_in_new</span>Link to ' + esc(pagesList[1].name) + '</button>' : '') +
+          '<button type="button" class="mini" data-act="quick-create-screen"><span class="mi">add</span>+ New Screen</button>' +
+          '</div></div>';
+      }
+
+      return '<div class="sect nav-link-sect">' +
+        '<div class="sect-title">Screen Navigation & Shortcut</div>' +
+        '<div class="f-row">' +
+        '<div class="f-label"><span>Link to Screen</span></div>' +
+        '<select class="f-select" data-nav-field="navTarget" aria-label="Link to screen">' +
+        '<option value=""' + (!navTarget ? ' selected' : '') + '>None (No navigation)</option>' +
+        pageOptions +
+        '<option value="__create_settings__">+ Create Settings Screen</option>' +
+        '<option value="__create_blank__">+ Create Blank Screen</option>' +
+        '</select>' +
+        '<small class="f-hint">Clicking this control moves to the selected screen.</small>' +
+        '</div>' +
+        '<div class="f-row">' +
+        '<div class="f-label"><span>Transition Animation</span></div>' +
+        '<select class="f-select" data-nav-field="transition" aria-label="Transition animation">' +
+        '<option value="slide"' + (transition === 'slide' ? ' selected' : '') + '>Shared Axis (Slide X)</option>' +
+        '<option value="fade"' + (transition === 'fade' ? ' selected' : '') + '>Fade Through</option>' +
+        '<option value="zoom"' + (transition === 'zoom' ? ' selected' : '') + '>Container Zoom</option>' +
+        '<option value="sheet"' + (transition === 'sheet' ? ' selected' : '') + '>Bottom Sheet (Slide Up)</option>' +
+        '</select>' +
+        '<small class="f-hint">How the screen opens when performing this action.</small>' +
+        '</div>' +
+        recommendation +
+        (isLinked ? '<button type="button" class="mini wide on" data-act="test-transition" style="margin-top:8px"><span class="mi">play_arrow</span>Test transition in phone</button>' : '') +
+        '</div>';
+    },
+
     advancedSection: function (item, lockLabel, hideLabel) {
       return '<div class="sect">' +
         '<div class="sect-title">Advanced</div>' +
@@ -257,7 +477,7 @@
     pagesSection: function () {
       var d = S.State.data;
       if (d.target !== 'app' || !Array.isArray(d.pages) || !d.pages.length) return '';
-      this._pagesOpen = this._pagesOpen !== false;
+      this._pagesOpen = !!this._pagesOpen;
 
       var rows = d.pages.map(function (page, index) {
         var active = page.id === d.activePageId;
@@ -592,7 +812,120 @@
       S.State.commit('typo:' + item.id + ':align');
     },
 
-    field: function (f, item) {
+    appBarActionsField: function (item, f) {
+      var d = S.State.data || {};
+      var pages = Array.isArray(d.pages) ? d.pages : [];
+      var actionItems = S.getAppBarActionItems ? S.getAppBarActionItems(item.props) : [];
+      var id = 'f_' + item.id + '_' + f.key;
+
+      var actionCards = actionItems.map(function (act, i) {
+        var target = act.target || 'none';
+
+        var pageOptions = pages.map(function (p) {
+          var isSel = (target === p.id) || (target === p.name.toLowerCase());
+          var tag = p.hiddenFromNav ? ' (Hidden page)' : '';
+          return '<option value="' + esc(p.id) + '"' + (isSel ? ' selected' : '') + '>?? ' + esc(p.name) + tag + '</option>';
+        }).join('');
+
+        return '<div class="ab-action-pill" data-act-pill-idx="' + i + '">' +
+          '<div class="ab-action-main-row">' +
+          '<span class="ab-action-idx">#' + (i + 1) + '</span>' +
+          '<button type="button" class="ab-action-ico-btn" data-appbar-act="ico" data-act-idx="' + i + '" title="Click to swap icon">' +
+          S.icon(act.icon || 'star') +
+          '</button>' +
+          '<input type="text" class="f-input ab-action-label-input" data-appbar-act="label" data-act-idx="' + i + '" value="' + esc(act.label || act.icon) + '" placeholder="Action label / tooltip" aria-label="Action ' + (i + 1) + ' label">' +
+          '<button type="button" class="mini danger ab-action-del-btn" data-appbar-act="del" data-act-idx="' + i + '" title="Remove action" aria-label="Remove action"><span class="mi">close</span></button>' +
+          '</div>' +
+          '<div class="ab-action-target-row">' +
+          '<label>On click:</label>' +
+          '<select class="f-select ab-action-target-select" data-appbar-act="target" data-act-idx="' + i + '" aria-label="Action ' + (i + 1) + ' destination">' +
+          '<option value="search_overlay"' + (target === 'search_overlay' ? ' selected' : '') + '>?? Search Overlay Sheet</option>' +
+          '<option value="menu"' + (target === 'menu' ? ' selected' : '') + '>? 3-Dot Overflow Menu</option>' +
+          '<option value="drawer"' + (target === 'drawer' ? ' selected' : '') + '>? Navigation Drawer</option>' +
+          (pages.length ? ('<optgroup label="Navigate to Screen">' + pageOptions + '</optgroup>') : '') +
+          '<optgroup label="Create & Link">' +
+          '<option value="__create_search__">+ Create Search Screen & Link</option>' +
+          '<option value="__create_blank__">+ Create New Screen & Link</option>' +
+          '</optgroup>' +
+          '<option value="none"' + (target === 'none' ? ' selected' : '') + '>? None (Static icon)</option>' +
+          '</select>' +
+          '</div>' +
+          '</div>';
+      }).join('');
+
+      return '<div class="f-row ab-actions-section" data-field-row="' + esc(f.key) + '">' +
+        '<div class="f-label"><span>Header Action Buttons</span><span class="val">' + actionItems.length + ' actions</span></div>' +
+        '<div class="ab-actions-list">' + (actionCards || '<p style="font-size:11px;color:var(--muted-2);margin:4px 0">No actions added yet.</p>') + '</div>' +
+        '<div class="ab-quick-add-tray">' +
+        '<span style="font-size:10.5px;color:var(--muted);width:100%">Quick Add:</span>' +
+        '<button type="button" class="mini on ab-quick-btn" data-appbar-add-preset="search"><span class="mi">search</span>+ Search</button>' +
+        '<button type="button" class="mini ab-quick-btn" data-appbar-add-preset="menu"><span class="mi">more_vert</span>+ 3-Dot More</button>' +
+        '<button type="button" class="mini ab-quick-btn" data-appbar-add-preset="notifications"><span class="mi">notifications</span>+ Alerts</button>' +
+        '<button type="button" class="mini ab-quick-btn" data-appbar-add-preset="settings"><span class="mi">settings</span>+ Settings</button>' +
+        '<button type="button" class="mini ab-quick-btn" data-appbar-add-preset="cart"><span class="mi">shopping_bag</span>+ Cart</button>' +
+        '<button type="button" class="mini ab-quick-btn" data-appbar-add-preset="custom"><span class="mi">add</span>+ Custom Icon</button>' +
+        '</div>' +
+        '<details class="ab-raw-drawer" style="margin-top:10px">' +
+        '<summary style="font-size:11px;color:var(--muted-2);cursor:pointer">Advanced / Raw icon list (comma-separated)</summary>' +
+        '<input class="f-input" id="' + id + '" data-key="' + esc(f.key) + '" value="' + esc(item.props.actions || '') + '" style="margin-top:6px">' +
+        '</details>' +
+        '<small class="f-hint">Click an icon to swap it. Pick what happens on tap: open search overlay, 3-dot menu, or navigate to any created screen.</small>' +
+        '</div>';
+    },
+
+    bottomNavTabsField: function (item, f) {
+      var d = S.State.data || {};
+      var pages = Array.isArray(d.pages) ? d.pages : [];
+      var value = U.getPath(item.props, f.key) || '';
+      var id = 'f_' + item.id + '_' + f.key;
+      var lines = String(value).split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+      var parsed = lines.map(function (line, i) {
+        var idx = line.indexOf(':');
+        var ico = idx > -1 ? line.slice(0, idx).trim() : 'apps';
+        var label = idx > -1 ? line.slice(idx + 1).trim() : line;
+        return { icon: ico, label: label, index: i };
+      });
+      if (!parsed.length) {
+        parsed = [{ icon: 'home', label: 'Home', index: 0 }];
+      }
+
+      var pageIdx = (S.State && S.State.pageIndex) ? S.State.pageIndex(d.activePageId) : -1;
+      var activeIndex = pageIdx > -1 ? pageIdx : (Number(item.props.active) || 0);
+      item.props.active = activeIndex;
+
+      var tabCards = parsed.map(function (tab, i) {
+        var linkedPage = pages[i];
+        var pageName = linkedPage ? linkedPage.name : ('Screen ' + (i + 1));
+        var isActive = i === activeIndex;
+
+        return '<div class="bnav-tab-pill bnav-tab-row' + (isActive ? ' is-active' : '') + '" data-tab-index="' + i + '">' +
+          '<button type="button" class="bnav-tab-active-radio' + (isActive ? ' is-active' : '') + '" data-bnav-act="set-active" data-tab-idx="' + i + '" title="' + (isActive ? 'Active preview tab (click another to switch)' : 'Click to preview this tab in phone') + '" aria-label="Make tab ' + (i + 1) + ' active">' +
+          '<span class="bnav-radio-dot"></span>' +
+          '</button>' +
+          '<button type="button" class="bnav-tab-ico-btn" data-bnav-act="ico" data-tab-idx="' + i + '" title="Click to swap icon" aria-label="Change icon for ' + esc(tab.label) + '">' +
+          S.icon(tab.icon || 'apps') +
+          '</button>' +
+          '<input type="text" class="f-input bnav-tab-label-input" data-bnav-act="label" data-tab-idx="' + i + '" value="' + esc(tab.label) + '" placeholder="Tab label" aria-label="Tab ' + (i + 1) + ' label">' +
+          (linkedPage ? ('<button type="button" class="bnav-tab-link bnav-tab-dest-chip" data-bnav-act="jump-screen" data-tab-idx="' + i + '" title="Links to screen: ' + esc(pageName) + '. Click to edit screen." aria-label="Edit screen ' + esc(pageName) + '"><span class="mi">smartphone</span><span class="btl-name">' + esc(pageName) + '</span></button>') : '') +
+          (parsed.length > 1 ? '<button type="button" class="mini danger bnav-tab-del-btn" data-bnav-act="del" data-tab-idx="' + i + '" title="Delete tab" aria-label="Delete tab"><span class="mi">close</span></button>' : '') +
+          '</div>';
+      }).join('');
+
+      return '<div class="f-row bnav-items-section" data-field-row="' + esc(f.key) + '">' +
+        '<div class="f-label"><span>Navigation Tabs</span><span class="val">' + parsed.length + ' tabs</span></div>' +
+        '<div class="bnav-tabs-list">' + tabCards + '</div>' +
+        '<div class="bnav-actions-bar" style="margin-top:8px">' +
+        '<button type="button" class="mini wide on bnav-add-btn" data-bnav-act="add"><span class="mi">add</span>Add Tab</button>' +
+        '</div>' +
+        '<details class="bnav-raw-drawer" style="margin-top:10px">' +
+        '<summary style="font-size:11px;color:var(--muted-2);cursor:pointer">Advanced / Raw format (icon:Label)</summary>' +
+        '<textarea class="f-textarea" id="' + id + '" data-key="' + esc(f.key) + '" rows="3" style="margin-top:6px">' + esc(value) + '</textarea>' +
+        '</details>' +
+        '<small class="f-hint">Click the radio dot to preview that tab in phone. Click icon to switch it. Click screen chip to edit that screen.</small>' +
+        '</div>';
+    },
+
+        field: function (f, item) {
       var value = U.getPath(item.props, f.key);
       var id = 'f_' + item.id + '_' + f.key;
       var labelTag = (f.type === 'toggle' || f.type === 'icon') ? 'div' : 'label';
@@ -606,6 +939,9 @@
       };
 
       if (f.type === 'textarea') {
+        if (isBottomNav(item.type) && f.key === 'items') {
+          return this.bottomNavTabsField(item, f);
+        }
         return wrap('<textarea class="f-textarea" id="' + id + '" data-key="' + esc(f.key) + '" rows="3">' + esc(value) + '</textarea>');
       }
       if (f.type === 'select') {
@@ -638,6 +974,9 @@
           '<span class="if-preview">' + S.icon(value) + '</span>' +
           '<span class="if-name">' + esc(S.iconName(value) || 'choose an icon') + '</span>' +
           '<span class="if-go">Pick</span></button>');
+      }
+      if ((item.type === 'appbar' || item.type === 'capsuleheader') && f.key === 'actions') {
+        return this.appBarActionsField(item, f);
       }
       return wrap('<input class="f-input" type="text" id="' + id + '" data-key="' + esc(f.key) + '" value="' + esc(value) + '">');
     },
@@ -678,6 +1017,52 @@
     bind: function (box) {
       var self = this;
 
+      box.addEventListener('change', function (e) {
+        var el = e.target;
+        var abActIdx = el.getAttribute('data-act-idx');
+        if (el.getAttribute('data-appbar-act') === 'target' && abActIdx != null) {
+          var abItem = self.selected();
+          if (!abItem) return;
+          var aIdx = Number(abActIdx);
+          var items = S.getAppBarActionItems(abItem.props);
+          if (!items[aIdx]) return;
+
+          var val = el.value;
+          if (val === '__create_search__') {
+            var searchPage = S.State.addPage('Search');
+            var searchBlock = S.makeBlock('searchpage');
+            if (searchBlock) searchPage.screen.push(searchBlock);
+            items[aIdx].target = searchPage.id;
+            abItem.props.actionItems = items;
+            abItem.props.actions = items.map(function (it) { return it.icon; }).join(', ');
+            S.State.commit('appbar:action:createsearch');
+            S.App.refresh('all');
+            self.render();
+            U.toast('Created dedicated Search screen and linked to action');
+            return;
+          }
+          if (val === '__create_blank__') {
+            var newPage = S.State.addPage('New Screen');
+            items[aIdx].target = newPage.id;
+            abItem.props.actionItems = items;
+            abItem.props.actions = items.map(function (it) { return it.icon; }).join(', ');
+            S.State.commit('appbar:action:createscreen');
+            S.App.refresh('all');
+            self.render();
+            U.toast('Created screen and linked to action');
+            return;
+          }
+          items[aIdx].target = val;
+          abItem.props.actionItems = items;
+          abItem.props.actions = items.map(function (it) { return it.icon; }).join(', ');
+          S.State.commit('appbar:action:target:' + aIdx);
+          S.Render.drawScreen();
+          var targetName = val === 'search_overlay' ? 'Search sheet' : (val === 'menu' ? 'Menu' : (val === 'drawer' ? 'Drawer' : (val === 'none' ? 'None' : val)));
+          U.toast('Action set to: ' + targetName);
+          return;
+        }
+      });
+
       /* `toggle` does not bubble, so listen in the capture phase. */
       box.addEventListener('toggle', function (e) {
         if (e.target.classList && e.target.classList.contains('nav-sect')) {
@@ -695,6 +1080,45 @@
         }
 
         /* Screen name — keeps every bottom navigation tab in sync. */
+        var abActIdx = el.getAttribute('data-act-idx');
+        if (el.getAttribute('data-appbar-act') === 'label' && abActIdx != null) {
+          var abItem = self.selected();
+          if (!abItem) return;
+          var aIdx = Number(abActIdx);
+          var items = S.getAppBarActionItems(abItem.props);
+          if (items[aIdx]) {
+            items[aIdx].label = el.value.trim() || items[aIdx].icon;
+            abItem.props.actionItems = items;
+            abItem.props.actions = items.map(function (it) { return it.icon; }).join(', ');
+            var rawInput = box.querySelector('[data-key="actions"]');
+            if (rawInput && rawInput !== el) rawInput.value = abItem.props.actions;
+            S.Render.drawScreen();
+            S.State.commit('appbar:action:label:' + aIdx);
+          }
+          return;
+        }
+
+        var bnavLabelIdx = el.getAttribute('data-tab-idx');
+        if (el.getAttribute('data-bnav-act') === 'label' && bnavLabelIdx != null) {
+          var bnavItem = self.selected();
+          if (!bnavItem) return;
+          var bIdx = Number(bnavLabelIdx);
+          var bLines = String(bnavItem.props.items || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+          var bLine = bLines[bIdx] || '';
+          var bcIdx = bLine.indexOf(':');
+          var bIco = bcIdx > -1 ? bLine.slice(0, bcIdx).trim() : 'apps';
+          bLines[bIdx] = bIco + ':' + (el.value.trim() || 'Tab');
+          bnavItem.props.items = bLines.join('\n');
+          if (S.State.data.pages && S.State.data.pages[bIdx]) {
+            S.State.data.pages[bIdx].name = el.value.trim() || 'Tab';
+          }
+          var rawTa = box.querySelector('[data-key="items"]');
+          if (rawTa && rawTa !== el) rawTa.value = bnavItem.props.items;
+          S.Render.drawScreen();
+          S.State.commit('bnav:tab:label:' + bIdx);
+          return;
+        }
+
         var pageName = el.getAttribute('data-page-name');
         if (pageName) {
           S.State.renamePage(pageName, el.value);
@@ -893,6 +1317,189 @@
         var btn = e.target.closest('button');
         if (!btn) return;
 
+        var abBtn = e.target.closest('[data-appbar-act]');
+        if (abBtn) {
+          var abAct = abBtn.getAttribute('data-appbar-act');
+          var aIdx = Number(abBtn.getAttribute('data-act-idx'));
+          var item = self.selected();
+          if (!item) return;
+          var items = S.getAppBarActionItems(item.props);
+
+          if (abAct === 'ico') {
+            var currentIco = items[aIdx] ? items[aIdx].icon : 'star';
+            if (S.IconSwitcher && S.IconSwitcher.open) {
+              S.IconSwitcher.open({
+                cmpId: item.id,
+                cmpLabel: 'Top Bar Action ' + (aIdx + 1),
+                propKey: 'actionIcon',
+                currentIcon: currentIco,
+                el: abBtn,
+                onSelect: function (newIcon) {
+                  var curItems = S.getAppBarActionItems(item.props);
+                  if (curItems[aIdx]) {
+                    curItems[aIdx].icon = newIcon;
+                    if (!curItems[aIdx].label || curItems[aIdx].label === currentIco) curItems[aIdx].label = newIcon;
+                  }
+                  item.props.actionItems = curItems;
+                  item.props.actions = curItems.map(function (it) { return it.icon; }).join(', ');
+                  S.Render.drawScreen();
+                  self.render();
+                  S.State.commit('appbar:action:icon:' + aIdx);
+                }
+              }, e);
+            }
+            return;
+          }
+
+          if (abAct === 'del') {
+            items.splice(aIdx, 1);
+            item.props.actionItems = items;
+            item.props.actions = items.map(function (it) { return it.icon; }).join(', ');
+            S.Render.drawScreen();
+            self.render();
+            S.State.commit('appbar:action:del:' + aIdx);
+            U.toast('Action removed');
+            return;
+          }
+        }
+
+        var abPresetBtn = e.target.closest('[data-appbar-add-preset]');
+        if (abPresetBtn) {
+          var preset = abPresetBtn.getAttribute('data-appbar-add-preset');
+          var item = self.selected();
+          if (!item) return;
+          var items = S.getAppBarActionItems(item.props);
+
+          var newAct = { id: U.uid(), icon: 'star', label: 'Action', target: 'none' };
+          if (preset === 'search') {
+            newAct = { id: U.uid(), icon: 'search', label: 'Search', target: 'search_overlay' };
+          } else if (preset === 'menu') {
+            newAct = { id: U.uid(), icon: 'more_vert', label: 'More options', target: 'menu' };
+          } else if (preset === 'notifications') {
+            newAct = { id: U.uid(), icon: 'notifications', label: 'Notifications', target: 'none' };
+          } else if (preset === 'settings') {
+            newAct = { id: U.uid(), icon: 'settings', label: 'Settings', target: 'settings' };
+          } else if (preset === 'cart') {
+            newAct = { id: U.uid(), icon: 'shopping_bag', label: 'Cart', target: 'none' };
+          } else if (preset === 'profile') {
+            newAct = { id: U.uid(), icon: 'person', label: 'Profile', target: 'profile' };
+          } else if (preset === 'custom') {
+            newAct = { id: U.uid(), icon: 'tune', label: 'Filter', target: 'none' };
+          }
+
+          items.push(newAct);
+          item.props.actionItems = items;
+          item.props.actions = items.map(function (it) { return it.icon; }).join(', ');
+          S.Render.drawScreen();
+          self.render();
+          S.State.commit('appbar:action:add:' + preset);
+          U.toast('Added ' + newAct.label + ' action to top bar');
+          return;
+        }
+
+        var bnavBtn = e.target.closest('[data-bnav-act]');
+        if (bnavBtn) {
+          var act = bnavBtn.getAttribute('data-bnav-act');
+          var idx = Number(bnavBtn.getAttribute('data-tab-idx'));
+          var item = self.selected();
+          if (!item) return;
+
+          if (act === 'set-active' || act === 'jump-screen') {
+            item.props.active = idx;
+            if (S.State.data.target === 'app' && Array.isArray(S.State.data.pages) && S.State.data.pages[idx]) {
+              var targetPage = S.State.data.pages[idx];
+              if (S.State.data.activePageId !== targetPage.id) {
+                S.State.switchPage(targetPage.id);
+              }
+              var newNav = (S.State.data.screen || []).filter(function (b) { return isBottomNav(b.type); })[0];
+              if (newNav && S.App && S.App.select) {
+                S.App.select(newNav.id);
+              } else if (S.App && S.App.refresh) {
+                S.App.refresh('all');
+              }
+            } else {
+              S.Render.drawScreen();
+              self.render();
+            }
+            S.State.commit('prop:active');
+            return;
+          }
+
+          if (act === 'ico') {
+            var lines = String(item.props.items || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+            var currentLine = lines[idx] || '';
+            var colonIdx = currentLine.indexOf(':');
+            var curIcon = colonIdx > -1 ? currentLine.slice(0, colonIdx).trim() : 'apps';
+            if (S.IconSwitcher && S.IconSwitcher.open) {
+              S.IconSwitcher.open({
+                cmpId: item.id,
+                cmpLabel: 'Bottom Navigation � Tab ' + (idx + 1),
+                propKey: 'tabIcon',
+                currentIcon: curIcon,
+                el: bnavBtn,
+                onSelect: function (newIcon) {
+                  var nextLines = String(item.props.items || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+                  var line = nextLines[idx] || '';
+                  var cIdx = line.indexOf(':');
+                  var lbl = cIdx > -1 ? line.slice(cIdx + 1).trim() : line;
+                  nextLines[idx] = newIcon + ':' + (lbl || ('Tab ' + (idx + 1)));
+                  item.props.items = nextLines.join('\n');
+                  if (S.State.data.pages && S.State.data.pages[idx]) {
+                    S.State.data.pages[idx].icon = newIcon;
+                  }
+                  S.State.syncPagesFromNav();
+                  S.State.syncNavFromPages();
+                  S.Render.drawScreen();
+                  self.render();
+                  S.State.commit('bnav:tab:icon:' + idx);
+                }
+              }, e);
+            } else {
+              S.iconTarget = { bnav: item.id, tabIndex: idx };
+              S.App.showTab('icons');
+              S.IconsPanel.sync();
+            }
+            return;
+          }
+
+          if (act === 'del') {
+            var lines = String(item.props.items || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+            if (lines.length <= 1) {
+              U.toast('Must keep at least one tab');
+              return;
+            }
+            lines.splice(idx, 1);
+            item.props.items = lines.join('\n');
+            if (S.State.data.pages && S.State.data.pages[idx]) {
+              S.State.deletePage(S.State.data.pages[idx].id);
+            } else {
+              S.State.syncPagesFromNav();
+              S.State.syncNavFromPages();
+              S.Render.drawScreen();
+              self.render();
+              S.State.commit('bnav:tab:del:' + idx);
+            }
+            return;
+          }
+
+          if (act === 'add') {
+            var d = S.State.data;
+            if (d.target === 'app') {
+              S.State.addPage();
+              S.App.refresh('all');
+              S.App.select(item.id);
+            } else {
+              var lines = String(item.props.items || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+              lines.push('apps:Tab ' + (lines.length + 1));
+              item.props.items = lines.join('\n');
+              S.Render.drawScreen();
+              self.render();
+              S.State.commit('bnav:tab:add');
+            }
+            return;
+          }
+        }
+
         /* Typography alignment / clear */
         if (btn.hasAttribute('data-typo-align')) {
           self.setTypoAlign(btn.getAttribute('data-typo-align'));
@@ -923,6 +1530,155 @@
         }
         if (btn.hasAttribute('data-nav-add')) {
           self.navAdd(btn.getAttribute('data-nav-add'));
+          return;
+        }
+
+        /* Tab Preview Chip click (tabs block in inspector) */
+        var tabPrevBtn = e.target.closest('[data-tab-preview-idx]');
+        if (tabPrevBtn) {
+          var tIdx = Number(tabPrevBtn.getAttribute('data-tab-preview-idx')) || 0;
+          var curTabs = self.selected();
+          if (curTabs) {
+            curTabs.props = curTabs.props || {};
+            curTabs.props.active = tIdx;
+            var tabLabels = String(curTabs.props.labels || '').split(',');
+            var curLabel = (tabLabels[tIdx] || '').trim();
+
+            // Sync any musiclisting block on screen
+            var screenBlocks = S.State.data.screen || [];
+            var mlBlock = screenBlocks.filter(function (b) { return b.type === 'musiclisting'; })[0];
+            if (mlBlock) {
+              var targetMode = null;
+              if (/song|track/i.test(curLabel)) targetMode = 'songs';
+              else if (/album/i.test(curLabel)) targetMode = 'albums';
+              else if (/artist/i.test(curLabel)) targetMode = 'artists';
+              else if (/beat|audio|inst/i.test(curLabel)) targetMode = 'beats';
+              mlBlock.props = mlBlock.props || {};
+              mlBlock.props.viewMode = targetMode || ['songs', 'albums', 'artists', 'beats'][tIdx] || 'songs';
+            }
+            S.Render.drawScreen();
+            self.render();
+            S.State.commit('tabs:preview:' + tIdx);
+            U.toast('Previewing tab: ' + (curLabel || ('Tab ' + (tIdx + 1))));
+          }
+          return;
+        }
+
+        /* Tabs Preset button click */
+        var tabPresetBtn = e.target.closest('[data-tabs-preset]');
+        if (tabPresetBtn) {
+          var presetVal = tabPresetBtn.getAttribute('data-tabs-preset');
+          var curTabs = self.selected();
+          if (curTabs) {
+            curTabs.props = curTabs.props || {};
+            curTabs.props.labels = presetVal;
+            curTabs.props.active = 0;
+            // Sync musiclisting if preset is music
+            if (presetVal.indexOf('Songs') > -1) {
+              var mlBlock = (S.State.data.screen || []).filter(function (b) { return b.type === 'musiclisting'; })[0];
+              if (mlBlock) {
+                mlBlock.props = mlBlock.props || {};
+                mlBlock.props.viewMode = 'songs';
+              }
+            }
+            S.Render.drawScreen();
+            self.render();
+            S.State.commit('tabs:preset');
+            U.toast('Applied tabs preset');
+          }
+          return;
+        }
+
+        /* MusicListing Category View Switcher in Inspector */
+        var mlCatBtn = e.target.closest('[data-ml-set-view]');
+        if (mlCatBtn) {
+          var newView = mlCatBtn.getAttribute('data-ml-set-view');
+          var curMl = self.selected();
+          if (curMl) {
+            curMl.props = curMl.props || {};
+            curMl.props.viewMode = newView;
+            // Sync any tabs block on screen
+            var topTabsBlock = (S.State.data.screen || []).filter(function (b) { return b.type === 'tabs' || b.type === 'tabspill'; })[0];
+            if (topTabsBlock && topTabsBlock.props) {
+              var modeIndices = { songs: 0, albums: 1, artists: 2, beats: 3 };
+              if (modeIndices[newView] != null) {
+                topTabsBlock.props.active = modeIndices[newView];
+              }
+            }
+            S.Render.drawScreen();
+            self.render();
+            S.State.commit('ml:viewMode:' + newView);
+            U.toast('Listing view set to: ' + newView.toUpperCase());
+          }
+          return;
+        }
+
+        /* Music player style picker */
+        var mpStyleBtn = e.target.closest('[data-mp-style]');
+        if (mpStyleBtn) {
+          var newStyle = mpStyleBtn.getAttribute('data-mp-style');
+          var mpItem = self.selected();
+          if (mpItem) {
+            mpItem.props = mpItem.props || {};
+            mpItem.props.style = newStyle;
+            mpItem.props.fullPlayerStyle = newStyle;
+            S.Render.drawScreen();
+            self.render();
+            S.State.commit('prop:' + mpItem.id + ':style');
+            U.toast('Player style: ' + newStyle);
+          }
+          return;
+        }
+
+        /* Music player modular feature toggle */
+        var mpModBtn = e.target.closest('[data-mp-mod-toggle]');
+        if (mpModBtn) {
+          var modKey = mpModBtn.getAttribute('data-mp-mod-toggle');
+          var modItem = self.selected();
+          if (modItem) {
+            modItem.props = modItem.props || {};
+            modItem.props[modKey] = !modItem.props[modKey];
+            S.Render.drawScreen();
+            self.render();
+            S.State.commit('prop:' + modItem.id + ':' + modKey);
+            U.toast((modItem.props[modKey] ? 'Enabled ' : 'Disabled ') + modKey);
+          }
+          return;
+        }
+
+        if (btn.getAttribute('data-act') === 'preview-player') {
+          var curMp = self.selected();
+          var pStyle = curMp ? (curMp.props.fullPlayerStyle || curMp.props.style) : 'vinyl';
+          if (S.Interactions && S.Interactions.openPlayerModal) {
+            S.Interactions.openPlayerModal(pStyle);
+          }
+          return;
+        }
+
+        if (btn.getAttribute('data-act') === 'create-player-screen') {
+          var cMp = self.selected();
+          var curStyle = cMp ? (cMp.props.fullPlayerStyle || cMp.props.style || 'vinyl') : 'vinyl';
+          var newP = S.State.addPage('Now Playing', { icon: 'msr:play_circle' });
+          if (newP) {
+            var fullMpBlock = S.makeBlock('musicplayer', {
+              style: curStyle,
+              title: (cMp && cMp.props.title) || 'Midnight Drive',
+              artist: (cMp && cMp.props.artist) || 'Nova Lane',
+              album: (cMp && cMp.props.album) || 'Neon Hours',
+              showSleepTimer: true,
+              showEqualizer: true,
+              showQualityBadge: true,
+              showSpeedVolume: true
+            });
+            newP.screen = [
+              S.makeBlock('appbar', { title: 'Now Playing', variant: 'center', leading: true }),
+              fullMpBlock
+            ];
+            S.State.commit('page:musicplayer');
+            S.App.refresh('all');
+            S.App.select(fullMpBlock.id);
+            U.toast('Created dedicated Now Playing screen');
+          }
           return;
         }
 

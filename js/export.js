@@ -1,9 +1,15 @@
-/* Builds a standalone, self-contained HTML mockup for the active target. */
+/* Builds a standalone, self-contained HTML mockup, Android Jetpack Compose project,
+   JSON design specification, or AI implementation prompt for the active target. */
 (function () {
   var S = window.Studio = window.Studio || {};
   var U = S.util;
   var esc = U.esc;
   var lastCode = '';
+  var activeTab = 'html';
+  var TABS = ['html', 'android', 'page', 'project', 'prompt'];
+
+  var currentAndroidFiles = [];
+  var activeAndroidFile = null;
 
   var MATERIAL_URL = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap';
   var PHOSPHOR_URL = 'https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css';
@@ -90,41 +96,260 @@
         '</body>\n</html>\n';
     },
 
-    /* Same drawer / menu / search behaviour, minified into the exported page. */
     runtime: function () {
       return '<script>\n(' + runtime.toString() + ')();\n</script>';
     },
 
-    open: function () {
-      lastCode = this.build();
-      var modal = document.getElementById('export-modal');
-      var code = document.getElementById('export-code');
-      var note = document.getElementById('export-note');
-      if (!modal || !code) return;
-      var d = S.State.data;
-      var meta = S.targets[d.target || 'app'];
+    content: function (tab) {
+      if (tab === 'page') {
+        return S.Project ? S.Project.pageJSON() : '';
+      }
+      if (tab === 'project') {
+        return (S.exporters && S.exporters.json && S.exporters.json.DesignSpecExporter)
+          ? S.exporters.json.DesignSpecExporter.generateJson(S.State.data)
+          : (S.Project ? S.Project.projectJSON() : '');
+      }
+      if (tab === 'prompt') {
+        return (S.exporters && S.exporters.prompt && S.exporters.prompt.AIPromptGenerator)
+          ? S.exporters.prompt.AIPromptGenerator.generatePrompt(S.State.data)
+          : '';
+      }
+      if (tab === 'android') {
+        if (currentAndroidFiles && currentAndroidFiles.length) {
+          var found = currentAndroidFiles.filter(function (f) { return f.path === activeAndroidFile; })[0];
+          if (found) return found.content;
+          return currentAndroidFiles[0].content;
+        }
+        return S.Android ? S.Android.build() : '';
+      }
+      return this.build();
+    },
 
-      var title = document.getElementById('export-title');
-      var sub = document.getElementById('export-sub');
-      if (title) title.textContent = 'Export ' + meta.label.toLowerCase();
-      if (sub) {
-        sub.textContent = d.target === 'web'
+    meta: function (tab) {
+      var d = S.State.data;
+      var target = S.targets[d.target || 'app'];
+      var page = S.Project ? S.Project.pageDoc() : null;
+      var pageCount = d.target === 'app' && Array.isArray(d.pages) ? d.pages.length : 1;
+      var blockCount = d.target === 'app' && Array.isArray(d.pages)
+        ? d.pages.reduce(function (n, p) { return n + (p.screen || []).length; }, 0)
+        : d.screen.length;
+
+      if (tab === 'page') {
+        return {
+          title: 'Page file (JSON)',
+          sub: 'A re-importable page. Use the Import button in the top bar to open it and edit again.',
+          copy: 'Copy JSON',
+          download: 'Download .json',
+          filename: S.Project ? S.Project.pageFilename() : 'droidlab-page.json',
+          mime: 'application/json;charset=utf-8',
+          note: (page ? page.name : 'Page') + ' · ' + (page ? page.screen.length : 0) +
+            ' blocks · round-trip editable'
+        };
+      }
+      if (tab === 'project') {
+        return {
+          title: 'Design Specification (JSON)',
+          sub: 'Full schema v2 design specification with tokens, component hierarchy, assets and metadata.',
+          copy: 'Copy JSON',
+          download: 'Download .json',
+          filename: 'droidlab-design-spec.json',
+          mime: 'application/json;charset=utf-8',
+          note: pageCount + (pageCount === 1 ? ' screen' : ' screens') + ' · ' + blockCount +
+            ' blocks · Schema v2'
+        };
+      }
+      if (tab === 'prompt') {
+        return {
+          title: 'AI Implementation Prompt',
+          sub: 'Generated prompt containing exact design tokens, component hierarchy and architecture rules.',
+          copy: 'Copy Prompt',
+          download: 'Download .md',
+          filename: 'droidlab-ai-prompt.md',
+          mime: 'text/markdown;charset=utf-8',
+          note: 'Ready to paste into Claude, ChatGPT, Gemini or Cursor'
+        };
+      }
+      if (tab === 'android') {
+        var fileName = activeAndroidFile ? activeAndroidFile.split('/').pop() : 'MainActivity.kt';
+        var sum = S.Android ? S.Android.summary() : { screens: pageCount, blocks: blockCount, fonts: [], icons: [] };
+        return {
+          title: 'Android Studio Project (Jetpack Compose)',
+          sub: 'Native Kotlin + Jetpack Compose Material 3 implementation with VectorDrawables and Unidirectional Data Flow.',
+          copy: 'Copy File Code',
+          download: 'Download ' + fileName,
+          filename: fileName,
+          mime: 'text/plain;charset=utf-8',
+          note: sum.screens + ' screen(s) · ' + sum.blocks + ' blocks · ' +
+            (currentAndroidFiles ? currentAndroidFiles.length : 0) + ' files · ZIP project available'
+        };
+      }
+      return {
+        title: 'Export ' + target.label.toLowerCase(),
+        sub: d.target === 'web'
           ? 'One standalone HTML page. Drop it on any static host, or open it locally.'
           : d.target === 'ext'
             ? 'One standalone popup page. Open it in a browser to test the extension UI.'
-            : 'One standalone HTML file. Open it on your phone to test the fonts for real.';
+            : 'One standalone HTML file. Open it on your phone to test the fonts for real.',
+        copy: 'Copy HTML',
+        download: 'Download .html',
+        filename: target.file,
+        mime: 'text/html;charset=utf-8',
+        note: (lastCode.length / 1024).toFixed(1) + ' KB · ' + blockCount + ' blocks · ' +
+          (pageCount > 1 ? pageCount + ' screens · ' : '') + target.label + ' · ' +
+          d.theme.fonts.ui + ' / ' + d.theme.fonts.display
+      };
+    },
+
+    setButton: function (button, icon, label) {
+      if (!button) return;
+      var mi = button.querySelector('.mi');
+      var text = button.querySelector('span:not(.mi)');
+      if (mi) mi.textContent = icon;
+      if (text) text.textContent = label;
+    },
+
+    updateAndroidState: function () {
+      var d = S.State.data;
+      var appNameInput = document.getElementById('export-app-name');
+      var pkgNameInput = document.getElementById('export-package-name');
+      var minSdkSelect = document.getElementById('export-min-sdk');
+      var filePicker = document.getElementById('export-file-picker');
+      var banner = document.getElementById('export-validation-banner');
+
+      var appName = (appNameInput && appNameInput.value) || 'Droid Lab';
+      var packageName = (pkgNameInput && pkgNameInput.value) || 'com.example.droidlab';
+      var minSdk = (minSdkSelect && minSdkSelect.value) || '26';
+
+      var exporter = S.exporters && S.exporters.android && S.exporters.android.AndroidExporter;
+      if (!exporter) return;
+
+      var validation = exporter.validate(d);
+      if (banner) {
+        banner.className = 'export-validation-banner' + (validation.warnings.length ? ' has-warnings' : '');
+        banner.innerHTML = '<span class="mi">' + (validation.warnings.length ? 'warning' : 'check_circle') + '</span> ' +
+          '<strong>' + (validation.warnings.length ? 'Validation Note' : 'Ready for Android Studio') + '</strong> — ' +
+          validation.stats.blocks + ' blocks mapped, ' + validation.stats.drawables + ' vector drawables, Material 3 Jetpack Compose.';
       }
 
-      code.value = lastCode;
-      if (note) {
-        var pageCount = d.target === 'app' && Array.isArray(d.pages) ? d.pages.length : 1;
-        var blockCount = d.target === 'app' && Array.isArray(d.pages)
-          ? d.pages.reduce(function (n, page) { return n + (page.screen || []).length; }, 0)
-          : d.screen.length;
-        note.textContent = (lastCode.length / 1024).toFixed(1) + ' KB · ' +
-          blockCount + ' blocks · ' + (pageCount > 1 ? pageCount + ' screens · ' : '') +
-          meta.label + ' · ' + d.theme.fonts.ui + ' / ' + d.theme.fonts.display;
+      currentAndroidFiles = exporter.generateProject({
+        data: d,
+        appName: appName,
+        packageName: packageName,
+        minSdk: Number(minSdk),
+        targetSdk: 34
+      });
+
+      if (filePicker) {
+        var currentSelection = filePicker.value || activeAndroidFile;
+        filePicker.innerHTML = '';
+        currentAndroidFiles.forEach(function (f) {
+          var opt = document.createElement('option');
+          opt.value = f.path;
+          opt.textContent = f.path;
+          filePicker.appendChild(opt);
+        });
+        if (currentSelection && currentAndroidFiles.some(function (f) { return f.path === currentSelection; })) {
+          filePicker.value = currentSelection;
+          activeAndroidFile = currentSelection;
+        } else if (currentAndroidFiles.length) {
+          filePicker.value = currentAndroidFiles[0].path;
+          activeAndroidFile = currentAndroidFiles[0].path;
+        }
       }
+
+      var code = document.getElementById('export-code');
+      if (code) {
+        var f = currentAndroidFiles.filter(function (item) { return item.path === activeAndroidFile; })[0];
+        code.value = f ? f.content : (currentAndroidFiles[0] ? currentAndroidFiles[0].content : '');
+      }
+
+      var meta = this.meta('android');
+      var note = document.getElementById('export-note');
+      if (note) note.textContent = meta.note;
+      this.setButton(document.getElementById('export-copy'), 'content_copy', meta.copy);
+      this.setButton(document.getElementById('export-download'), 'download', meta.download);
+    },
+
+    selectAndroidFile: function (path) {
+      activeAndroidFile = path;
+      var code = document.getElementById('export-code');
+      if (code && currentAndroidFiles) {
+        var f = currentAndroidFiles.filter(function (item) { return item.path === path; })[0];
+        if (f) code.value = f.content;
+      }
+      var meta = this.meta('android');
+      var note = document.getElementById('export-note');
+      if (note) note.textContent = meta.note;
+      this.setButton(document.getElementById('export-copy'), 'content_copy', meta.copy);
+      this.setButton(document.getElementById('export-download'), 'download', meta.download);
+    },
+
+    exportZip: function () {
+      var appNameInput = document.getElementById('export-app-name');
+      var pkgNameInput = document.getElementById('export-package-name');
+      var minSdkSelect = document.getElementById('export-min-sdk');
+
+      var appName = (appNameInput && appNameInput.value) || 'Droid Lab';
+      var packageName = (pkgNameInput && pkgNameInput.value) || 'com.example.droidlab';
+      var minSdk = (minSdkSelect && minSdkSelect.value) || '26';
+
+      var exporter = S.exporters && S.exporters.android && S.exporters.android.AndroidExporter;
+      if (exporter) {
+        exporter.exportZip({
+          data: S.State.data,
+          appName: appName,
+          packageName: packageName,
+          minSdk: Number(minSdk),
+          targetSdk: 34
+        });
+      }
+    },
+
+    setTab: function (tab) {
+      if (TABS.indexOf(tab) === -1) tab = 'html';
+      activeTab = tab;
+
+      if (tab === 'html') lastCode = this.build();
+      var code = document.getElementById('export-code');
+      var note = document.getElementById('export-note');
+      var title = document.getElementById('export-title');
+      var sub = document.getElementById('export-sub');
+      var androidBar = document.getElementById('export-android-bar');
+      var validationBanner = document.getElementById('export-validation-banner');
+      var zipBtn = document.getElementById('export-zip');
+
+      if (tab === 'android') {
+        if (androidBar) androidBar.hidden = false;
+        if (validationBanner) validationBanner.hidden = false;
+        if (zipBtn) zipBtn.hidden = false;
+        this.updateAndroidState();
+      } else {
+        if (androidBar) androidBar.hidden = true;
+        if (validationBanner) validationBanner.hidden = true;
+        if (zipBtn) zipBtn.hidden = true;
+        if (code) code.value = this.content(tab);
+      }
+
+      var meta = this.meta(tab);
+      if (title) title.textContent = meta.title;
+      if (sub) sub.textContent = meta.sub;
+      if (note) note.textContent = meta.note;
+
+      Array.prototype.forEach.call(document.querySelectorAll('#export-modal .mtab'), function (btn) {
+        var on = btn.getAttribute('data-mtab') === tab;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        btn.tabIndex = on ? 0 : -1;
+      });
+
+      this.setButton(document.getElementById('export-copy'), 'content_copy', meta.copy);
+      this.setButton(document.getElementById('export-download'), 'download', meta.download);
+    },
+
+    open: function (tab) {
+      var modal = document.getElementById('export-modal');
+      if (!modal) return;
+      this.setTab(tab || 'html');
       modal.hidden = false;
     },
 
@@ -137,32 +362,35 @@
       var code = document.getElementById('export-code');
       if (!code) return;
       var text = code.value;
-      var done = function () { U.toast('HTML copied'); };
+      var meta = this.meta(activeTab);
+      var label = meta.copy ? meta.copy + 'ed' : 'Copied';
+      var done = function () { U.toast(label); };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(code); });
+        navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(code, label); });
       } else {
-        fallbackCopy(code);
+        fallbackCopy(code, label);
       }
     },
 
     download: function () {
-      if (!lastCode) lastCode = this.build();
-      var d = S.State.data;
-      var meta = S.targets[d.target || 'app'];
-      var blob = new Blob([lastCode], { type: 'text/html;charset=utf-8' });
+      var text = document.getElementById('export-code');
+      var content = text ? text.value : this.content(activeTab);
+      if (activeTab === 'html' && !content) { content = this.build(); lastCode = content; }
+      var meta = this.meta(activeTab);
+      var blob = new Blob([content], { type: meta.mime });
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.href = url;
-      a.download = meta.file;
+      a.download = meta.filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
       setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
-      U.toast('Downloaded ' + meta.file);
+      U.toast('Downloaded ' + meta.filename);
     }
   };
 
-  /* Serialised into the exported file. Must not depend on Studio. */
+/* Serialised into the exported file. Must not depend on Studio. */
   function runtime() {
     var RECENT = 'droidlab.ui.recent';
 
@@ -551,12 +779,12 @@
     document.addEventListener('pointercancel', endSwipe);
   }
 
-  function fallbackCopy(code) {
+  function fallbackCopy(code, label) {
     code.focus();
     code.select();
     try {
       document.execCommand('copy');
-      U.toast('HTML copied');
+      U.toast(label || 'Copied');
     } catch (err) {
       U.toast('Select the text and press Ctrl+C');
     }

@@ -2,6 +2,156 @@
 (function () {
   var S = window.Studio = window.Studio || {};
 
+  /* ========================================================
+     Custom Templates Manager (Save, Export, Import, Delete)
+     ======================================================== */
+  
+  /* ========================================================
+     Settings Screen Generator & Quick Shortcut Helper
+     ======================================================== */
+  S.createSettingsScreen = function (name) {
+    var pageName = name || 'Settings';
+    var d = S.State.data;
+    var newPage = S.State.addPage();
+    newPage.name = pageName;
+    newPage.icon = 'msr:settings';
+
+    newPage.screen = [
+      S.makeBlock('appbar', {
+        title: pageName,
+        variant: 'large',
+        leading: true,
+        leadingIcon: 'arrow_back',
+        actions: 'search, more_vert',
+        elevated: false
+      }),
+      S.makeBlock('hero', {
+        kicker: 'Personal Account',
+        title: 'Alex Rivera',
+        subtitle: 'alex@droidlab.app · Cloud Sync Active',
+        icon: 'account_circle',
+        height: 160
+      }),
+      S.makeBlock('settingslist', {
+        title: 'Preferences & Display',
+        items: 'notifications:Notifications | Push alerts, sound and badges | switch:on\ndark_mode:Dark Theme | OLED deep black background | badge:Auto\npalette:Dynamic Color | Match Android wallpaper palette | switch:on\nlanguage:App Language | English (United States) | chevron'
+      }),
+      S.makeBlock('settingslist', {
+        title: 'Playback & Audio Quality',
+        items: 'equalizer:Audio Equalizer | Bass boost, Dolby Atmos surround | badge:Dolby\nstream:Audio Quality | Hi-Res Lossless 24-bit/96kHz | chevron\ndownload:Offline Downloads | Wi-Fi only (3.4 GB stored) | switch:on'
+      }),
+      S.makeBlock('settingslist', {
+        title: 'Security & Device Storage',
+        items: 'fingerprint:Biometric Unlock | Use fingerprint or face ID | switch:on\nstorage:Internal Storage | 24.8 GB used of 128 GB | chevron\ninfo:About App | Version 2.5.0 Expressive | chevron'
+      }),
+      S.makeBlock('button', {
+        label: 'Log out of account',
+        variant: 'outlined',
+        icon: 'logout',
+        full: true
+      })
+    ].filter(Boolean);
+
+    // Keep bottom nav if present on other screens
+    var navBlock = (d.screen || []).filter(function (it) { return it.type === 'bottomnav'; })[0];
+    if (navBlock) {
+      var copy = S.makeBlock('bottomnav', {
+        items: navBlock.props.items,
+        active: Math.max(0, d.pages.length - 1),
+        style: navBlock.props.style || 'material'
+      });
+      if (copy) newPage.screen.push(copy);
+    }
+
+    d.screen = newPage.screen;
+    S.State.commit('page:add-settings');
+    if (S.App) S.App.refresh('all');
+    return newPage;
+  };
+
+  var CUSTOM_TPL_KEY = 'droidlab.custom_templates';
+
+  S.getCustomTemplates = function () {
+    try {
+      var raw = localStorage.getItem(CUSTOM_TPL_KEY);
+      var list = JSON.parse(raw || '[]');
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  S.saveCustomTemplate = function (label, icon, category) {
+    var d = (S.State && S.State.data) || {};
+    var list = S.getCustomTemplates();
+    var id = 'custom_' + Date.now();
+    var item = {
+      id: id,
+      label: label || 'Custom Design',
+      icon: icon || 'dashboard_customize',
+      category: category || 'Custom',
+      target: d.target || 'app',
+      date: new Date().toLocaleDateString(),
+      theme: JSON.parse(JSON.stringify(d.theme || {})),
+      device: JSON.parse(JSON.stringify(d.device || {})),
+      ui: JSON.parse(JSON.stringify(d.ui || {})),
+      screen: JSON.parse(JSON.stringify(d.screen || [])),
+      pages: Array.isArray(d.pages) ? JSON.parse(JSON.stringify(d.pages)) : null,
+      activePageId: d.activePageId || null
+    };
+    list.unshift(item);
+    try {
+      localStorage.setItem(CUSTOM_TPL_KEY, JSON.stringify(list));
+    } catch (err) {
+      console.warn('Failed to save custom template to localStorage', err);
+    }
+    return item;
+  };
+
+  S.deleteCustomTemplate = function (id) {
+    var list = S.getCustomTemplates().filter(function (t) { return t.id !== id; });
+    try {
+      localStorage.setItem(CUSTOM_TPL_KEY, JSON.stringify(list));
+    } catch (err) {}
+  };
+
+  S.exportCustomTemplates = function () {
+    var list = S.getCustomTemplates();
+    var data = {
+      generator: 'Droid Lab Custom Templates',
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      templates: list
+    };
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'droidlab-custom-templates.json';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  };
+
+  S.importCustomTemplates = function (jsonStr) {
+    try {
+      var data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+      var incoming = Array.isArray(data) ? data : (Array.isArray(data.templates) ? data.templates : [data]);
+      var existing = S.getCustomTemplates();
+      var count = 0;
+      incoming.forEach(function (tpl) {
+        if (!tpl.screen && !tpl.pages) return;
+        tpl.id = 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+        existing.unshift(tpl);
+        count++;
+      });
+      localStorage.setItem(CUSTOM_TPL_KEY, JSON.stringify(existing));
+      return count;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+
   function b(type, overrides) {
     return S.makeBlock(type, overrides || {});
   }
@@ -97,6 +247,206 @@
 
   S.templates = {
     app: [
+      {
+        id: 'settings',
+        label: 'Settings & Preferences',
+        icon: 'settings',
+        badge: 'Utility',
+        theme: {
+          primary: '#6750A4',
+          radius: 20,
+          dark: false,
+          fonts: { ui: 'Inter', display: 'Plus Jakarta Sans' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Settings', variant: 'large', leadingIcon: 'arrow_back', actions: 'search, more_vert', elevated: false }),
+            b('hero', { kicker: 'Account settings', title: 'Alex Rivera', subtitle: 'alex@droidlab.app · Cloud Sync', icon: 'account_circle', height: 160 }),
+            b('settingslist', {
+              title: 'Preferences',
+              items: 'notifications:Notifications | Push alerts, sounds and badges | switch:on\ndark_mode:Dark theme | Pure OLED black appearance | badge:Auto\nlanguage:Language | English (US) | chevron'
+            }),
+            b('settingslist', {
+              title: 'Audio & Storage',
+              items: 'equalizer:Audio Equalizer | Dolby Atmos surround | badge:Dolby\ndownload:Offline Downloads | Wi-Fi only (3.4 GB saved) | switch:on\nstorage:Storage | 24.8 GB of 128 GB used | chevron'
+            }),
+            b('settingslist', {
+              title: 'Security',
+              items: 'fingerprint:Biometric Unlock | Fingerprint & Face Unlock | switch:on\nlock:Passcode Lock | Required on open | switch:off\ninfo:About App | Version 2.5.0 Expressive | chevron'
+            }),
+            b('button', { label: 'Log out', variant: 'outlined', icon: 'logout', full: true }),
+            b('bottomnav', { items: 'home:Home\nsearch:Explore\nlibrary_music:Library\nsettings:Settings', active: 3 })
+          ]);
+        }
+      },
+      {
+        id: 'modernmusic',
+        label: 'Modern Music & Docked Player',
+        icon: 'library_music',
+        badge: 'Docked player',
+        theme: {
+          primary: '#8B5CF6',
+          radius: 24,
+          dark: true,
+          fonts: { ui: 'Plus Jakarta Sans', display: 'Plus Jakarta Sans' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Listen Now', variant: 'large', actions: 'search, more_vert', elevated: false }),
+            b('chips', { labels: 'Trending, Hip-Hop, Electronic, Chill, Acoustic', selected: 0 }),
+            b('hero', { kicker: 'Featured release', title: 'Midnight Drive', subtitle: 'Nova Lane · Neon Hours album streaming now.', icon: 'headphones', height: 200 }),
+            b('listennow', {
+              kicker: 'Trending tracks',
+              title: 'Heavy rotation',
+              subtitle: 'Based on your recent listening',
+              action: 'See all',
+              layout: 'poster',
+              items: 'Midnight Drive | Nova Lane | headphones\nPaper Planes | Kite Club | flight\nLow Orbit | Nia Sol | public\nAfter Rain | Vela | water_drop'
+            }),
+            b('section', { title: 'Top hits this week', action: 'Queue' }),
+            b('tracklist', {
+              items: 'Midnight Drive | Nova Lane | 3:42\nPaper Planes | Kite Club | 2:58\nLow Orbit | Nia Sol | 4:06\nAfter Rain | Vela | 3:21',
+              active: 0, showCover: true
+            }),
+            b('miniplayer', {
+              layout: 'floating',
+              title: 'Midnight Drive',
+              artist: 'Nova Lane',
+              coverIcon: 'headphones',
+              progress: 45,
+              playing: true,
+              dock: true,
+              fullPlayerStyle: 'vinyl',
+              showPrevious: true,
+              showNext: true
+            }),
+            b('bottomnav', { items: 'home:Home\nsearch:Explore\nlibrary_music:Library\nperson:Profile', active: 0 })
+          ]);
+        }
+      },
+      {
+        id: 'vinylplayer',
+        label: 'Vinyl Turntable Studio',
+        icon: 'album',
+        badge: 'Turntable',
+        theme: {
+          primary: '#EC4899',
+          radius: 26,
+          dark: true,
+          fonts: { ui: 'Outfit', display: 'Sora' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Now playing', variant: 'center', leading: false, actions: 'more_vert', elevated: false }),
+            b('musicplayer', {
+              style: 'vinyl',
+              title: 'Midnight Drive',
+              artist: 'Nova Lane',
+              album: 'Neon Hours',
+              coverIcon: 'album',
+              progress: 42,
+              elapsed: '1:48',
+              duration: '4:12',
+              audioRoute: 'AirPods Max',
+              liked: true,
+              playing: true
+            }),
+            b('section', { title: 'Up next in queue', action: 'Queue' }),
+            b('tracklist', {
+              items: 'Paper Planes | Kite Club | 2:58\nLow Orbit | Nia Sol | 4:06\nAfter Rain | Vela | 3:21',
+              active: 0, showCover: true
+            })
+          ]);
+        }
+      },
+      {
+        id: 'audiopodcast',
+        label: 'Podcast & Audio Streamer',
+        icon: 'podcasts',
+        badge: 'Streamer',
+        theme: {
+          primary: '#06B6D4',
+          radius: 20,
+          dark: true,
+          fonts: { ui: 'Inter', display: 'Plus Jakarta Sans' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Podcasts', variant: 'large', actions: 'search, more_vert', elevated: false }),
+            b('chips', { labels: 'All, Design, Technology, Science, Culture', selected: 0 }),
+            b('hero', { kicker: 'Featured Episode · 48 min', title: 'The Future of AI & Interfaces', subtitle: 'Studio Dialogues · Episode 128', icon: 'mic', height: 190 }),
+            b('section', { title: 'Latest episodes', action: 'Library' }),
+            b('tracklist', {
+              items: 'System Design Principles | Tech Talks | 42:15\nDesign Systems in 2026 | UI Craft | 31:40\nCreative Flow States | Deep Work | 55:20',
+              active: 0, showCover: true
+            }),
+            b('miniplayer', {
+              layout: 'glass',
+              title: 'The Future of AI & Interfaces',
+              artist: 'Studio Dialogues',
+              coverIcon: 'mic',
+              progress: 68,
+              playing: true,
+              dock: true,
+              fullPlayerStyle: 'lyrics',
+              showPrevious: true,
+              showNext: true
+            }),
+            b('bottomnav', { items: 'podcasts:Shows\nexplore:Discover\ndownload:Downloads\nsettings:Settings', active: 0 })
+          ]);
+        }
+      },
+      {
+        id: 'explorehub',
+        label: 'Explore & Search Hub',
+        icon: 'manage_search',
+        badge: 'Discovery',
+        theme: {
+          primary: '#3B82F6',
+          radius: 22,
+          dark: false,
+          fonts: { ui: 'Inter', display: 'Plus Jakarta Sans' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Explore', variant: 'large', actions: 'notifications, more_vert', elevated: false }),
+            b('searchbar', { placeholder: 'Search artists, playlists, genres...', avatar: false }),
+            b('chips', { labels: 'All, Charts, Releases, Podcasts, Live', selected: 0 }),
+            b('section', { title: 'Browse categories', action: 'See all' }),
+            b('foldergrid', { title: 'Genres' }),
+            b('bottomnav', { items: 'home:Home\nsearch:Explore\nlibrary_music:Library\nperson:Profile', active: 1 })
+          ]);
+        }
+      },
+      {
+        id: 'fitnesspulse',
+        label: 'Fitness & Health Hub',
+        icon: 'fitness_center',
+        badge: 'Health',
+        theme: {
+          primary: '#10B981',
+          radius: 20,
+          dark: true,
+          fonts: { ui: 'DM Sans', display: 'DM Sans' }
+        },
+        build: function () {
+          return screen([
+            b('appbar', { title: 'Activity', variant: 'center', leading: false, actions: 'date_range, settings', elevated: false }),
+            b('hero', { kicker: 'Daily Goal Achieved', title: '8,420 steps', subtitle: 'Active streak: 12 consecutive days', icon: 'directions_walk', height: 160 }),
+            b('progress', { label: 'Daily Move Goal · 680 / 800 kcal', value: 85 }),
+            b('statrow', {
+              items: 'Steps | 8,420 | directions_walk\nDistance | 6.2 km | route\nActive | 48 min | timer',
+              columns: '3'
+            }),
+            b('section', { title: 'Today\'s Workouts', action: 'History' }),
+            b('list', {
+              items: 'Outdoor Run | 4.2 km · 28 min · 340 kcal\nCore Strength | 20 min · 180 kcal\nEvening Stretch | 15 min · 60 kcal',
+              leading: 'icon', leadingIcon: 'fitness_center', trailing: 'chevron'
+            }),
+            b('bottomnav', { items: 'fitness_center:Activity\ntrending_up:Stats\nemoji_events:Awards\nperson:Profile', active: 0 })
+          ]);
+        }
+      },
       {
         id: 'discover',
         label: 'Discover',
@@ -553,6 +903,21 @@
   };
 
   S.buildTemplate = function (target, id) {
+    // Check if loading a custom saved template
+    if (typeof id === 'string' && id.indexOf('custom_') === 0) {
+      var customList = S.getCustomTemplates();
+      var match = customList.filter(function (c) { return c.id === id; })[0];
+      if (match) {
+        return {
+          screen: JSON.parse(JSON.stringify(match.screen || [])),
+          pages: match.pages ? JSON.parse(JSON.stringify(match.pages)) : null,
+          device: Object.assign({}, S.targets[target || match.target || 'app'].device, match.device || {}),
+          theme: Object.assign(S.baseTheme(), match.theme || {}),
+          template: { id: match.id, label: match.label, icon: match.icon }
+        };
+      }
+    }
+
     var list = S.templates[target] || [];
     var tpl = list.filter(function (t) { return t.id === id; })[0] || list[0];
     var t = S.targets[target];
@@ -639,10 +1004,9 @@
     list.forEach(function (block) {
       if (!nav && block.type === 'bottomnav') nav = block;
     });
-
     var entries = [];
     if (nav) {
-      entries = String(nav.props.items || '').split('\n')
+      entries = String(nav.props.items || '').split(/\r?\n|\\n/)
         .map(function (line) { return line.trim(); })
         .filter(Boolean)
         .map(function (line) {
@@ -652,23 +1016,64 @@
             : { icon: 'apps', label: line };
         });
     }
-
+    if (!entries.length) {
+      var tabsBlock = null;
+      list.forEach(function (b) { if (!tabsBlock && b.type === 'tabs') tabsBlock = b; });
+      if (tabsBlock && tabsBlock.props.labels) {
+        entries = String(tabsBlock.props.labels || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean).map(function (label) {
+          return { icon: 'msr:tab', label: label };
+        });
+      }
+    }
+    if (!entries.length) {
+      var webnavBlock = null;
+      list.forEach(function (b) { if (!webnavBlock && b.type === 'webnav') webnavBlock = b; });
+      if (webnavBlock && webnavBlock.props.links) {
+        entries = String(webnavBlock.props.links || '').split(',').map(function (s) {
+          var trimmed = s.trim();
+          var m = trimmed.match(/^([^\\[]+)/);
+          return m ? m[1].trim() : trimmed;
+        }).filter(Boolean).map(function (link) {
+          return { icon: 'msr:web', label: link };
+        });
+      }
+    }
     if (!entries.length) {
       var single = { id: S.util.uid(), name: 'Home', icon: 'msr:home', screen: list };
       return { pages: [single], activePageId: single.id };
     }
-
-    var activeIndex = Math.max(0, Math.min(entries.length - 1, Number(nav.props.active) || 0));
+    var activeIndex = 0;
+    if (nav) activeIndex = Math.max(0, Math.min(entries.length - 1, Number(nav.props.active) || 0));
     var pages = entries.map(function (entry, index) {
       var pageScreen = list;
       if (index !== activeIndex) {
         pageScreen = [];
-        var copy = S.makeBlock('bottomnav', {
-          items: nav.props.items,
-          active: index,
-          style: nav.props.style || 'material'
+        list.forEach(function (block) {
+          if (block.type === 'appbar' || block.type === 'webnav' || block.type === 'exthead') {
+            var h = JSON.parse(JSON.stringify(block));
+            h.id = S.util.uid();
+            if (h.props) h.props.title = entry.label;
+            pageScreen.push(h);
+          } else if (block.type === 'tabs') {
+            var tb = JSON.parse(JSON.stringify(block));
+            tb.id = S.util.uid();
+            tb.props.active = index;
+            pageScreen.push(tb);
+          } else if (block.type === 'bottomnav') {
+            var bn = JSON.parse(JSON.stringify(block));
+            bn.id = S.util.uid();
+            bn.props.active = index;
+            pageScreen.push(bn);
+          }
         });
-        if (copy) pageScreen.push(copy);
+        if (!pageScreen.length && nav && S.makeBlock) {
+          var copy = S.makeBlock('bottomnav', {
+            items: nav.props.items,
+            active: index,
+            style: nav.props.style || 'material'
+          });
+          if (copy) pageScreen.push(copy);
+        }
       }
       return {
         id: S.util.uid(),
@@ -677,7 +1082,6 @@
         screen: pageScreen
       };
     });
-
     return { pages: pages, activePageId: pages[activeIndex].id };
   };
 

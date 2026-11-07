@@ -193,4 +193,224 @@
         '<span class="ext-link" data-edit="link">' + esc(p.link) + '</span></footer>';
     }
   };
+
+  /* ------------------- NEW CHROME EXTENSION TOOLS ------------------- */
+  S.components.extactivetab = {
+    label: 'Tab Inspector',
+    group: 'Extension',
+    icon: 'tab',
+    targets: EXT,
+    defaults: {
+      domain: 'github.com',
+      title: 'DroidLab / Android-Compose-Compiler',
+      loadTime: '240 ms',
+      status: 'Secure SSL'
+    },
+    fields: [
+      { key: 'domain', label: 'Domain', type: 'text' },
+      { key: 'title', label: 'Tab title', type: 'text' },
+      { key: 'loadTime', label: 'Load latency', type: 'text' },
+      { key: 'status', label: 'Security status', type: 'text' }
+    ],
+    html: function (p) {
+      return '<div class="ext-card ext-tab-card">' +
+        '<div class="etc-top"><span class="mi etc-fav">public</span><div class="etc-info"><strong>' + esc(p.domain) + '</strong><small>' + esc(p.title) + '</small></div><button type="button" class="ext-mini-btn" title="Refresh tab"><span class="mi">refresh</span></button></div>' +
+        '<div class="etc-meta"><span class="etc-badge"><span class="mi">speed</span>' + esc(p.loadTime) + '</span><span class="etc-badge secure"><span class="mi">lock</span>' + esc(p.status) + '</span></div>' +
+        '</div>';
+    }
+  };
+
+  S.components.extcolorpicker = {
+    label: 'Eyedropper / Palette',
+    group: 'Extension',
+    icon: 'colorize',
+    targets: EXT,
+    defaults: {
+      hex: '#8B6CF6',
+      rgb: 'rgb(139, 108, 246)',
+      history: '#8B6CF6,#7EF0C2,#FF7262,#FFD166'
+    },
+    fields: [
+      { key: 'hex', label: 'Active HEX', type: 'text' },
+      { key: 'rgb', label: 'Active RGB', type: 'text' },
+      { key: 'history', label: 'Palette swatches (comma separated)', type: 'text' }
+    ],
+    html: function (p) {
+      var swatches = String(p.history || '').split(',').map(function (c) {
+        return '<span class="ext-swatch" style="background:' + esc(c.trim()) + '" title="' + esc(c.trim()) + '"></span>';
+      }).join('');
+      return '<div class="ext-card ext-picker-card">' +
+        '<div class="epc-row"><div class="epc-preview" style="background:' + esc(p.hex) + '"></div><div class="epc-values"><strong>' + esc(p.hex) + '</strong><small>' + esc(p.rgb) + '</small></div><button type="button" class="ext-mini-btn" title="Copy HEX"><span class="mi">content_copy</span></button></div>' +
+        '<div class="epc-swatches"><span class="epc-lbl">Recents:</span>' + swatches + '</div>' +
+        '</div>';
+    }
+  };
+
+  S.components.extspeedtest = {
+    label: 'Network Speed Test',
+    group: 'Extension',
+    icon: 'network_check',
+    targets: EXT,
+    defaults: {
+      ping: '14 ms',
+      download: '184.2 Mbps',
+      upload: '68.5 Mbps'
+    },
+    fields: [
+      { key: 'ping', label: 'Ping / Latency', type: 'text' },
+      { key: 'download', label: 'Download speed', type: 'text' },
+      { key: 'upload', label: 'Upload speed', type: 'text' }
+    ],
+    html: function (p) {
+      return '<div class="ext-card ext-speed-card">' +
+        '<div class="esp-metrics">' +
+        '<div class="esp-item"><small>PING</small><strong>' + esc(p.ping) + '</strong></div>' +
+        '<div class="esp-item down"><small>DOWNLOAD</small><strong>' + esc(p.download) + '</strong></div>' +
+        '<div class="esp-item up"><small>UPLOAD</small><strong>' + esc(p.upload) + '</strong></div>' +
+        '</div>' +
+        '<button type="button" class="ext-btn w-100"><span class="mi">play_arrow</span><span>Test Again</span></button>' +
+        '</div>';
+    }
+  };
+
+  S.components.extadblockstats = {
+    label: 'Shield & Privacy Stats',
+    group: 'Extension',
+    icon: 'security',
+    targets: EXT,
+    defaults: {
+      trackers: '18 blocked',
+      status: 'Shields UP'
+    },
+    fields: [
+      { key: 'trackers', label: 'Trackers blocked', type: 'text' },
+      { key: 'status', label: 'Shield status', type: 'text' }
+    ],
+    html: function (p) {
+      return '<div class="ext-card ext-shield-card">' +
+        '<div class="esh-top"><span class="mi esh-icon">verified_user</span><div><strong>' + esc(p.status) + '</strong><small>' + esc(p.trackers) + ' on this site</small></div><div class="ext-toggle on"></div></div>' +
+        '</div>';
+    }
+  };
+
+  S.components.extpasswordgen = {
+    label: 'Password Generator',
+    group: 'Extension',
+    icon: 'password',
+    targets: EXT,
+    defaults: {
+      password: 'kR9#vW2$mQ8!pZ4@',
+      length: '16 characters'
+    },
+    fields: [
+      { key: 'password', label: 'Generated password', type: 'text' },
+      { key: 'length', label: 'Length note', type: 'text' }
+    ],
+    html: function (p) {
+      return '<div class="ext-card ext-pwd-card">' +
+        '<div class="epw-box"><code>' + esc(p.password) + '</code><button type="button" class="ext-mini-btn" title="Copy"><span class="mi">content_copy</span></button></div>' +
+        '<div class="epw-meta"><span class="epw-badge strong"><span class="mi">shield</span>Very Strong</span><small>' + esc(p.length) + '</small><button type="button" class="ext-mini-btn" title="Regenerate"><span class="mi">refresh</span></button></div>' +
+        '</div>';
+    }
+  };
+
+  S.components.exttodo = {
+    label: 'Popup Task Checklist',
+    group: 'Extension',
+    icon: 'checklist',
+    targets: EXT,
+    defaults: {
+      tasks: 'Review Compose Navigation spec:1\nAdd Phosphor and Tabler vector icons:1\nDeploy Android Studio APK:0'
+    },
+    fields: [
+      { key: 'tasks', label: 'Tasks (Task text:Done 1/0)', type: 'textarea' }
+    ],
+    html: function (p) {
+      var items = String(p.tasks || '').split('\n').map(function (line) {
+        var pt = line.split(':');
+        var text = pt[0] ? pt[0].trim() : 'Task';
+        var done = pt[1] && pt[1].trim() === '1';
+        return '<div class="etd-item' + (done ? ' is-done' : '') + '">' +
+          '<span class="mi etd-check">' + (done ? 'check_box' : 'check_box_outline_blank') + '</span>' +
+          '<span class="etd-text">' + esc(text) + '</span>' +
+          '</div>';
+      }).join('');
+      return '<div class="ext-card ext-todo-card">' +
+        '<div class="etd-head"><strong>Quick Tasks</strong><small>2 / 3 Completed</small></div>' +
+        '<div class="etd-list">' + items + '</div>' +
+        '</div>';
+    }
+  };
+
+
+  S.components.extbookmarklist = {
+    label: 'Bookmarks Manager',
+    group: 'Extension',
+    icon: 'bookmarks',
+    targets: EXT,
+    defaults: {
+      bookmarks: 'Jetpack Compose Docs:developer.android.com:star\nLucide Icons Catalog:lucide.dev:favorite\nMaterial 3 Guidelines:m3.material.io:palette'
+    },
+    fields: [
+      { key: 'bookmarks', label: 'Bookmarks (Title:Domain:Icon)', type: 'textarea' }
+    ],
+    html: function (p) {
+      var rowsHtml = String(p.bookmarks || '').split('\n').map(function (line) {
+        var pt = line.split(':');
+        return '<div class="ebm-item"><span class="mi ebm-ico">' + esc(pt[2] || 'bookmark') + '</span><div class="ebm-info"><strong>' + esc(pt[0]) + '</strong><small>' + esc(pt[1]) + '</small></div><span class="mi ebm-arrow">arrow_forward</span></div>';
+      }).join('');
+      return '<div class="ext-card ext-bookmark-card">' +
+        '<div class="ebm-head"><strong>Quick Bookmarks</strong><button type="button" class="ext-mini-btn"><span class="mi">add</span></button></div>' +
+        '<div class="ebm-list">' + rowsHtml + '</div>' +
+        '</div>';
+    }
+  };
+
+  S.components.extclipboard = {
+    label: 'Clipboard History',
+    group: 'Extension',
+    icon: 'assignment',
+    targets: EXT,
+    defaults: {
+      clips: 'Modifier.background(MaterialTheme.colorScheme.surface)\n#8B6CF6 (Accent Violet)\nimport androidx.compose.material3.*'
+    },
+    fields: [
+      { key: 'clips', label: 'Clips (newline separated)', type: 'textarea' }
+    ],
+    html: function (p) {
+      var clipsHtml = String(p.clips || '').split('\n').map(function (c) {
+        return '<div class="ecl-row"><code>' + esc(c) + '</code><button type="button" class="ext-mini-btn" title="Copy"><span class="mi">content_copy</span></button></div>';
+      }).join('');
+      return '<div class="ext-card ext-clip-card">' +
+        '<div class="ecl-head"><strong>Clipboard History</strong><small>3 clips saved</small></div>' +
+        '<div class="ecl-list">' + clipsHtml + '</div>' +
+        '</div>';
+    }
+  };
+
+  S.components.extreadingmode = {
+    label: 'Reader Mode',
+    group: 'Extension',
+    icon: 'chrome_reader_mode',
+    targets: EXT,
+    defaults: {
+      title: 'Compiling Android Jetpack Compose in Droid Lab',
+      author: 'By Elena Rostova · 4 min read',
+      body: 'Visual design tooling has historically suffered from impedance mismatch when translating CSS into native declarative layouts...'
+    },
+    fields: [
+      { key: 'title', label: 'Article title', type: 'text' },
+      { key: 'author', label: 'Author / read time', type: 'text' },
+      { key: 'body', label: 'Sample excerpt', type: 'textarea' }
+    ],
+    html: function (p) {
+      return '<div class="ext-card ext-reader-card">' +
+        '<div class="erd-toolbar"><button type="button" class="ext-mini-btn">A-</button><button type="button" class="ext-mini-btn">A+</button><button type="button" class="ext-mini-btn"><span class="mi">dark_mode</span></button></div>' +
+        '<h3 class="erd-title">' + esc(p.title) + '</h3>' +
+        '<small class="erd-author">' + esc(p.author) + '</small>' +
+        '<p class="erd-body">' + esc(p.body) + '</p>' +
+        '</div>';
+    }
+  };
+
 })();
