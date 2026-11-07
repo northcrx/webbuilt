@@ -73,6 +73,7 @@
     init: function () {
       injectStyles();
       this.initUITheme();
+      this.initEditorDesign();
       this.initLeftTab();
       this.bindStarterModal();
       S.State.init();
@@ -137,6 +138,23 @@
       this.leftTab = saved;
     },
 
+    editorFont: 'Inter',
+    canvasPattern: 'dots',
+
+    initEditorDesign: function () {
+      var savedTheme = 'dark';
+      var savedFont = 'Inter';
+      var savedPattern = 'dots';
+      try {
+        savedTheme = localStorage.getItem('droidlab.ui') || 'dark';
+        savedFont = localStorage.getItem('droidlab.editorFont') || 'Inter';
+        savedPattern = localStorage.getItem('droidlab.canvasPattern') || 'dots';
+      } catch (err) {}
+      this.setUITheme(savedTheme, true);
+      this.setEditorFont(savedFont, true);
+      this.setCanvasPattern(savedPattern, true);
+    },
+
     initUITheme: function () {
       var saved = 'dark';
       try { saved = localStorage.getItem('droidlab.ui') || 'dark'; } catch (err) { saved = 'dark'; }
@@ -144,7 +162,8 @@
     },
 
     setUITheme: function (theme, silent) {
-      theme = theme === 'light' ? 'light' : 'dark';
+      var validThemes = ['dark', 'light', 'material', 'nordic', 'midnight', 'cyberpunk', 'editorial'];
+      theme = validThemes.indexOf(theme) > -1 ? theme : (theme === 'light' ? 'light' : 'dark');
       this.uiTheme = theme;
       document.documentElement.setAttribute('data-ui', theme);
       try { localStorage.setItem('droidlab.ui', theme); } catch (err) { /* private mode */ }
@@ -153,8 +172,120 @@
       var label = document.querySelector('#btn-ui-theme [data-ui-label]');
       if (label) label.textContent = theme === 'dark' ? 'Light editor' : 'Dark editor';
       var tb = document.getElementById('btn-ui-theme');
-      if (tb) tb.title = theme === 'dark' ? 'Switch editor to light mode' : 'Switch editor to dark mode';
-      if (!silent) U.toast(theme === 'dark' ? 'Editor: dark' : 'Editor: light');
+      if (tb) tb.title = 'Switch editor design skin';
+      if (!silent) U.toast('Editor theme: ' + theme);
+    },
+
+    setEditorFont: function (fontName, silent) {
+      if (!fontName) return;
+      this.editorFont = fontName;
+      if (S.Fonts && S.Fonts.load) S.Fonts.load(fontName);
+      document.documentElement.style.setProperty('--editor-font', U.quote(fontName) + ', system-ui, -apple-system, sans-serif');
+      document.body.style.fontFamily = 'var(--editor-font)';
+      try { localStorage.setItem('droidlab.editorFont', fontName); } catch (e) {}
+      if (!silent) U.toast('Builder font: ' + fontName);
+      this.updateEditorDesignModal();
+    },
+
+    setBuilderTheme: function (theme, silent) {
+      this.setUITheme(theme, silent);
+      this.updateEditorDesignModal();
+    },
+
+    setCanvasPattern: function (pattern, silent) {
+      pattern = pattern || 'dots';
+      this.canvasPattern = pattern;
+      document.body.setAttribute('data-canvas-pattern', pattern);
+      try { localStorage.setItem('droidlab.canvasPattern', pattern); } catch (e) {}
+      if (!silent) U.toast('Canvas background: ' + pattern);
+      this.updateEditorDesignModal();
+    },
+
+    openEditorDesignModal: function () {
+      var modal = document.getElementById('builder-design-modal');
+      if (!modal) return;
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      this.updateEditorDesignModal();
+    },
+
+    closeEditorDesignModal: function () {
+      var modal = document.getElementById('builder-design-modal');
+      if (!modal) return;
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+    },
+
+    updateEditorDesignModal: function () {
+      var modal = document.getElementById('builder-design-modal');
+      if (!modal) return;
+
+      var currentFont = this.editorFont || 'Inter';
+      var currentTheme = this.uiTheme || 'dark';
+      var currentPattern = this.canvasPattern || 'dots';
+
+      // 1. Render fonts
+      var fontsGrid = modal.querySelector('#bdm-fonts-grid');
+      if (fontsGrid) {
+        var fontsList = [
+          { name: 'Inter', desc: 'Default Clean UI' },
+          { name: 'Plus Jakarta Sans', desc: 'Modern Geometric' },
+          { name: 'Outfit', desc: 'Rounded & Friendly' },
+          { name: 'Sora', desc: 'Futuristic Tech' },
+          { name: 'Space Grotesk', desc: 'Monospace Vibe' },
+          { name: 'Poppins', desc: 'Bold Display' },
+          { name: 'DM Sans', desc: 'Clean International' },
+          { name: 'Fira Code', desc: 'Developer Code' },
+          { name: 'Roboto', desc: 'Android Material 3' },
+          { name: 'Montserrat', desc: 'Editorial Header' }
+        ];
+        fontsGrid.innerHTML = fontsList.map(function (f) {
+          var on = f.name === currentFont;
+          return '<button type="button" class="bdm-font-card' + (on ? ' is-active' : '') + '" data-bdm-font="' + esc(f.name) + '" style="font-family:' + U.quote(f.name) + ', sans-serif">' +
+            '<strong>' + esc(f.name) + '</strong>' +
+            '<small>' + esc(f.desc) + '</small>' +
+            '</button>';
+        }).join('');
+      }
+
+      // 2. Render themes
+      var themesGrid = modal.querySelector('#bdm-themes-grid');
+      if (themesGrid) {
+        var themesList = [
+          { id: 'dark', label: 'Studio Dark', bg: '#0e0e12', accent: '#b9a6ff', desc: 'Default Obsidian' },
+          { id: 'light', label: 'Nordic Light', bg: '#f8f9fc', accent: '#5b5bd6', desc: 'Crisp Minimal White' },
+          { id: 'material', label: 'Material You', bg: '#171224', accent: '#d0bcff', desc: 'Dynamic Violet' },
+          { id: 'midnight', label: 'Midnight Indigo', bg: '#090e1d', accent: '#60a5fa', desc: 'Deep Tech Navy' },
+          { id: 'cyberpunk', label: 'Cyberpunk Neon', bg: '#05070f', accent: '#00f0ff', desc: 'High-Voltage Cyan' },
+          { id: 'editorial', label: 'Warm Editorial', bg: '#1c1713', accent: '#e09f67', desc: 'Warm Sepia Paper' }
+        ];
+        themesGrid.innerHTML = themesList.map(function (th) {
+          var on = th.id === currentTheme;
+          return '<button type="button" class="bdm-theme-card' + (on ? ' is-active' : '') + '" data-bdm-theme="' + th.id + '">' +
+            '<div class="bdm-th-preview" style="background:' + th.bg + ';border-color:' + th.accent + '"><span class="bdm-th-dot" style="background:' + th.accent + '"></span></div>' +
+            '<div class="bdm-th-info"><strong>' + esc(th.label) + '</strong><small>' + esc(th.desc) + '</small></div>' +
+            '</button>';
+        }).join('');
+      }
+
+      // 3. Render patterns
+      var patternsRow = modal.querySelector('#bdm-patterns-row');
+      if (patternsRow) {
+        var patternsList = [
+          { id: 'dots', label: 'Dot Matrix', icon: 'blur_on' },
+          { id: 'grid', label: 'Blueprint Grid', icon: 'grid_4x4' },
+          { id: 'garden', label: 'Garden Glow', icon: 'flare' },
+          { id: 'clean', label: 'Flat Slate', icon: 'crop_square' }
+        ];
+        patternsRow.innerHTML = patternsList.map(function (pt) {
+          var on = pt.id === currentPattern;
+          return '<button type="button" class="bdm-pattern-btn' + (on ? ' is-active' : '') + '" data-bdm-pattern="' + pt.id + '">' +
+            '<span class="mi">' + pt.icon + '</span><span>' + esc(pt.label) + '</span>' +
+            '</button>';
+        }).join('');
+      }
     },
 
     toggleUITheme: function () {
@@ -473,6 +604,13 @@
       });
 
       menu.addEventListener('click', function (e) {
+        var gardenAction = e.target.closest('[data-sd-action="garden"]');
+        if (gardenAction) {
+          menu.hidden = true;
+          fab.classList.remove('is-open');
+          if (S.BlockGarden && S.BlockGarden.open) S.BlockGarden.open();
+          return;
+        }
         var blockBtn = e.target.closest('[data-sd-block]');
         var item = e.target.closest('[data-sd-template]');
         if (!blockBtn && !item) return;
@@ -1148,6 +1286,39 @@
       if (exportBtn) exportBtn.addEventListener('click', function () { S.Export.open('html'); });
       if (importBtn) importBtn.addEventListener('click', function () { if (S.Import && S.Import.open) S.Import.open(); });
       if (uiTheme) uiTheme.addEventListener('click', function () { self.toggleUITheme(); });
+      var btnDesign = $('#btn-builder-design');
+      var btnDesignMenu = $('#btn-editor-design-menu');
+      if (btnDesign) btnDesign.addEventListener('click', function () { self.openEditorDesignModal(); });
+      if (btnDesignMenu) btnDesignMenu.addEventListener('click', function () {
+        self.closeMoreMenu();
+        self.openEditorDesignModal();
+      });
+
+      var bdmModal = $('#builder-design-modal');
+      if (bdmModal) {
+        bdmModal.addEventListener('click', function (e) {
+          if (e.target.closest('[data-bdm-close]')) {
+            e.preventDefault();
+            self.closeEditorDesignModal();
+            return;
+          }
+          var fontBtn = e.target.closest('[data-bdm-font]');
+          if (fontBtn) {
+            self.setEditorFont(fontBtn.getAttribute('data-bdm-font'));
+            return;
+          }
+          var themeBtn = e.target.closest('[data-bdm-theme]');
+          if (themeBtn) {
+            self.setBuilderTheme(themeBtn.getAttribute('data-bdm-theme'));
+            return;
+          }
+          var patternBtn = e.target.closest('[data-bdm-pattern]');
+          if (patternBtn) {
+            self.setCanvasPattern(patternBtn.getAttribute('data-bdm-pattern'));
+            return;
+          }
+        });
+      }
       if (handoff) handoff.addEventListener('click', function () {
         self.closeMoreMenu();
         S.Export.open('android');

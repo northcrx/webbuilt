@@ -27,8 +27,10 @@
       logoStyle: 'plain',
       logoColor: '',
       logoSize: 22,
-      links: 'Shop [All Products, Clothing, Accessories], New in, Journal',
-      dropdowns: 'Shop: All Products | Clothing | Accessories | Footwear\nJournal: Stories | Lookbook | Interviews',
+      links: 'Shop, New in, Journal',
+      dropdownStyle: 'clean',
+      dropdownTheme: 'auto',
+      dropdowns: 'Shop: All Products:NEW|shopping_bag:Browse our full catalog | Clothing|checkroom:Seasonal apparel & basics | Accessories|watch:Handcrafted jewelry & timepieces | Footwear|steps:Leather sneakers & loafers\nJournal: Stories|auto_stories:Behind the scenes & craft | Lookbook|photo_camera:Spring 2026 editorial | Interviews|mic:Conversations with creators',
       navWeight: '500',
       navSize: 13,
       cta: 'Bag · 2',
@@ -46,7 +48,20 @@
       { key: 'logoColor', label: 'Logo icon color', type: 'color' },
       { key: 'logoSize', label: 'Logo icon size (px)', type: 'number', min: 14, max: 48 },
       { key: 'links', label: 'Links (comma separated or Label [Sub1, Sub2])', type: 'text' },
-      { key: 'dropdowns', label: 'Dropdown items (Label: Item1 | Item2)', type: 'textarea' },
+      { key: 'dropdownStyle', label: 'Dropdown menu design', type: 'select', options: [
+        ['clean', 'Modern Clean Card (Theme adaptive)'],
+        ['bento', 'Bento Garden Grid (2-Column cards with icons)'],
+        ['glass', 'Frosted Glassmorphism'],
+        ['minimal', 'Minimalist Floating List'],
+        ['mega', 'Rich Mega Menu (Multi-column with categories)']
+      ] },
+      { key: 'dropdownTheme', label: 'Dropdown color theme', type: 'select', options: [
+        ['auto', 'Auto (Match Website Canvas)'],
+        ['light', 'Clean Light Surface'],
+        ['dark', 'Deep Dark Surface'],
+        ['accent', 'Accent Tinted Surface']
+      ] },
+      { key: 'dropdowns', label: 'Dropdown items (Label: Item:Badge|icon:Subtitle | Item2...)', type: 'textarea' },
       { key: 'navWeight', label: 'Nav font thickness', type: 'select', options: [
         ['300', 'Light (300)'],
         ['400', 'Regular (400)'],
@@ -69,7 +84,15 @@
         var idx = line.indexOf(':');
         if (idx > -1) {
           var name = line.slice(0, idx).trim().toLowerCase();
-          var sub = line.slice(idx + 1).split('|').map(function (s) { return s.trim(); }).filter(Boolean);
+          var content = line.slice(idx + 1).trim();
+          var sub;
+          if (content.indexOf(';') > -1) {
+            sub = content.split(';').map(function (s) { return s.trim(); }).filter(Boolean);
+          } else if (content.indexOf(' | ') > -1 && (content.match(/\|/g) || []).length > (content.match(/\s+\|\s+/g) || []).length) {
+            sub = content.split(/\s+\|\s+/).map(function (s) { return s.trim(); }).filter(Boolean);
+          } else {
+            sub = content.split('|').map(function (s) { return s.trim(); }).filter(Boolean);
+          }
           if (name && sub.length) ddMap[name] = sub;
         }
       });
@@ -103,12 +126,47 @@
           subItems = bracketMatch[2].split(',').map(function (it) { return it.trim(); }).filter(Boolean);
         }
         if (subItems && subItems.length) {
-          var dropHtml = '<div class="wnav-dropdown" role="menu">' + subItems.map(function (item) {
-            var parts = item.split(':');
-            var itemLabel = parts[0].trim();
-            var badge = parts[1] ? '<span class="wnav-dd-badge">' + esc(parts[1].trim()) + '</span>' : '';
-            return '<a href="#" class="wnav-dd-link" data-nav-link="' + esc(itemLabel) + '" role="menuitem"><span>' + esc(itemLabel) + '</span>' + badge + '</a>';
-          }).join('') + '</div>';
+          var ddStyle = p.dropdownStyle || 'clean';
+          var ddTheme = p.dropdownTheme || 'auto';
+          var itemsHtml = subItems.map(function (item) {
+            var raw = item.trim();
+            var parts;
+            if (raw.indexOf('/') > -1) {
+              parts = raw.split('/');
+            } else {
+              parts = raw.split('|');
+            }
+            var left = (parts[0] || '').trim();
+            var right = (parts[1] || '').trim();
+
+            var lParts = left.split(':');
+            var itemLabel = lParts[0].trim();
+            var badge = lParts[1] ? lParts[1].trim() : '';
+
+            var icon = '';
+            var sub = '';
+            if (right) {
+              var rParts = right.split(':');
+              icon = rParts[0].trim();
+              sub = rParts[1] ? rParts[1].trim() : '';
+            }
+
+            var iconHtml = icon ? '<span class="wnav-dd-icon-box">' + S.icon(icon) + '</span>' : '';
+            var badgeHtml = badge ? '<span class="wnav-dd-badge">' + esc(badge) + '</span>' : '';
+            var infoHtml = '<div class="wnav-dd-info"><strong>' + esc(itemLabel) + '</strong>' +
+              (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>';
+
+            return '<a href="#" class="wnav-dd-link" data-nav-link="' + esc(itemLabel) + '" role="menuitem">' +
+              iconHtml + infoHtml + badgeHtml + '</a>';
+          }).join('');
+
+          var megaFooter = (ddStyle === 'mega') ? '<div class="wnav-dd-footer"><span class="wnav-dd-footer-tag">New Season 2026</span><span>Free worldwide shipping on orders over $100 &rarr;</span></div>' : '';
+
+          var dropHtml = '<div class="wnav-dropdown wnav-dd-' + esc(ddStyle) + '" data-style="' + esc(ddStyle) + '" data-theme="' + esc(ddTheme) + '" role="menu">' +
+            '<div class="wnav-dd-grid">' + itemsHtml + '</div>' +
+            megaFooter +
+            '</div>';
+
           return '<div class="wnav-item">' +
             '<button type="button" class="wnav-dd-btn" data-nav-link="' + esc(trimmed) + '" aria-expanded="false">' +
             '<span>' + esc(trimmed) + '</span>' +

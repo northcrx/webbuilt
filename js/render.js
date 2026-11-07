@@ -1091,6 +1091,8 @@
             matchCat = gLow.indexOf('input') !== -1 || gLow.indexOf('form') !== -1 || kLow.indexOf('input') !== -1 || kLow.indexOf('search') !== -1 || kLow.indexOf('field') !== -1 || kLow.indexOf('slider') !== -1;
           } else if (category === 'actions') {
             matchCat = gLow.indexOf('action') !== -1 || gLow.indexOf('button') !== -1 || kLow.indexOf('btn') !== -1 || kLow.indexOf('button') !== -1 || kLow.indexOf('fab') !== -1 || kLow.indexOf('chip') !== -1 || kLow.indexOf('dialog') !== -1;
+          } else if (category === 'garden') {
+            matchCat = gLow.indexOf('garden') !== -1 || gLow.indexOf('custom') !== -1 || kLow.indexOf('custom') !== -1 || kLow.indexOf('garden') !== -1;
           }
           if (!matchCat) return;
         }

@@ -203,6 +203,11 @@
       el.style.top = '';
       el.style.right = '';
     });
+    document.querySelectorAll('.wnav-item.is-open').forEach(function (el) {
+      el.classList.remove('is-open');
+      var btn = el.querySelector('.wnav-dd-btn');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
     current = { type: null, frame: null };
   }
 
@@ -1383,8 +1388,30 @@
       e.preventDefault();
       e.stopPropagation();
       var item = ddBtn.closest(".wnav-item");
-      if (item) item.classList.toggle("is-open");
+      if (item) {
+        var nav = item.closest(".wnav");
+        if (nav) {
+          nav.querySelectorAll(".wnav-item.is-open").forEach(function (other) {
+            if (other !== item) {
+              other.classList.remove("is-open");
+              var ob = other.querySelector(".wnav-dd-btn");
+              if (ob) ob.setAttribute("aria-expanded", "false");
+            }
+          });
+        }
+        var willOpen = !item.classList.contains("is-open");
+        item.classList.toggle("is-open", willOpen);
+        ddBtn.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      }
       return;
+    }
+
+    if (!e.target.closest(".wnav-item")) {
+      document.querySelectorAll(".wnav-item.is-open").forEach(function (it) {
+        it.classList.remove("is-open");
+        var btn = it.querySelector(".wnav-dd-btn");
+        if (btn) btn.setAttribute("aria-expanded", "false");
+      });
     }
 
     /* Website navigation links (.wnav-links a, .wnav-dd-link, [data-nav-link]) */
